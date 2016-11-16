@@ -1,0 +1,28 @@
+server {
+	listen 80;
+	server_name 98.243.38.5;
+	
+	location ~ \.(js){
+		root /home/ward/Documents/Moles/application/js;
+	}
+
+	location ~ \.(png){
+		root /home/ward/Documents/Moles/application/images;
+	}
+
+	location /helloworld {
+		root /home/ward/Documents/Moles/application;
+		try_files /HelloWorld.html =404;
+	}
+
+	location /moles {
+		root /home/ward/Documents/Moles/application;
+		try_files /Moles.html =404;
+	}
+
+	
+	location /uwsgi {
+		include	uwsgi_params;
+		uwsgi_pass unix:/tmp/uwsgi.sock;
+	}
+}

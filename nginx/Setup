@@ -1,0 +1,6 @@
+1. Run SetupNginx.sh script
+
+2. Add:
+	application/json	json;
+to /etc/nginx/mime.types
+

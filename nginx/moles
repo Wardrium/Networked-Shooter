@@ -2,21 +2,25 @@ server {
 	listen 80;
 	server_name 98.243.38.5;
 	
-	location ~ \.(js){
+	location ~* \.(js){
 		root /home/ward/Documents/Moles/application/js;
 	}
 
-	location ~ \.(png){
+	location ~* \.(png){
 		root /home/ward/Documents/Moles/application/images;
 	}
 
-	location /helloworld {
+	location /project {
 		root /home/ward/Documents/Moles/application;
+	}
+
+	location /helloworld {
+		alias /home/ward/Documents/Moles/application;
 		try_files /HelloWorld.html =404;
 	}
 
 	location /moles {
-		root /home/ward/Documents/Moles/application;
+		alias /home/ward/Documents/Moles/application;
 		try_files /Moles.html =404;
 	}
 

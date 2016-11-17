@@ -1,6 +1,12 @@
 server {
 	listen 80;
 	server_name 98.243.38.5;
+
+	root /home/ward/Documents/Moles/application;
+
+	location ~* \.(json){
+		root /home/ward/Documents/Moles/application;
+	}
 	
 	location ~* \.(js){
 		root /home/ward/Documents/Moles/application/js;
@@ -8,10 +14,6 @@ server {
 
 	location ~* \.(png){
 		root /home/ward/Documents/Moles/application/images;
-	}
-
-	location /project {
-		root /home/ward/Documents/Moles/application;
 	}
 
 	location /helloworld {

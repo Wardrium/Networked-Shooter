@@ -23,7 +23,7 @@ var MenuLayer = cc.Layer.extend({
                 switch(key){
                     case cc.KEY.enter:
                         console.log('Enter pressed. Sending request...');
-                        sc.send_request(JSON.stringify({name: textInput.string}));
+                        sc.send.name({name: textInput.string});
                         cc.director.runScene(GameLayer.scene(textInput.string));
                         break;
                 }
@@ -41,6 +41,11 @@ MenuLayer.scene = function(){
 }
 
 
+var player;
+var otherPlayer;
+var otherPlayerTag;
+var otherPlayerConnected = false;
+
 var GameLayer = cc.Layer.extend({
     ctor:function(name){
         this._super();
@@ -48,6 +53,7 @@ var GameLayer = cc.Layer.extend({
     },
     init:function(name){
         this._super();
+        this.name = name;
         
         var size = cc.director.getWinSize();
 
@@ -55,13 +61,23 @@ var GameLayer = cc.Layer.extend({
         background.drawRect(cc.p(0, 0), cc.p(size.width, size.height), cc.color(0, 0, 0, 255));
         this.addChild(background, 0);
 
-        var player = new cc.DrawNode();
+        // YOUR PLAYER
+        player = new cc.DrawNode();
         player.setPosition(cc.p(size.width / 2, size.height / 2));
         player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(255, 0, 0, 255));
         this.addChild(player, 1);
 
         var nameTag = cc.LabelTTF.create(name, "Arial", 20);
         player.addChild(nameTag, 1);
+
+        // OTHER PLAYER
+        otherPlayer = new cc.DrawNode();
+        otherPlayer.setPosition(cc.p(size.width / 2, size.height / 2));
+        otherPlayer.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(0, 255, 0, 255));
+        this.addChild(otherPlayer, 1);
+
+        otherPlayerTag = cc.LabelTTF.create('Unconnected', "Arial", 20);
+        otherPlayer.addChild(otherPlayerTag, 1);
 
         cc.eventManager.addListener({
             event: cc.EventListener.KEYBOARD,
@@ -79,21 +95,24 @@ var GameLayer = cc.Layer.extend({
                     case cc.KEY.down:
                         player.setPosition(cc.p(player.getPositionX(), player.getPositionY() - 5));
                         break;
-
                 }
             }
         }, this);
 
-        /*var sprite = cc.Sprite.create("HelloWorld.png");
-        sprite.setPosition(size.width / 2, size.height / 2);
-        sprite.setScale(1.0);
-        this.addChild(sprite, 0);*/
-
-
+        this.schedule(this.updatePosition, 0.2);
     },
-    onEnter:function(){
-        this._super();
-    }
+    updateOtherPlayer:function(otherPlayerInfo){
+        if (otherPlayerConnected == false){
+            otherPlayerConnected = true;
+            otherPlayerTag.setString(otherPlayerInfo.name);
+        }
+        else {
+            otherPlayer.setPosition(otherPlayerInfo.position.x, otherPlayerInfo.position.y);
+        }
+    },
+    updatePosition:function(){
+        sc.send.position({name: this.name, position: player.getPosition()}, this.updateOtherPlayer);
+    },
 });
 
 GameLayer.scene = function(name){

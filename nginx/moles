@@ -12,6 +12,7 @@ server {
 		root /home/ward/Documents/Moles/application/js;
 	}
 
+
 	location ~* \.(png){
 		root /home/ward/Documents/Moles/application/images;
 	}

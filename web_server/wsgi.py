@@ -1,33 +1,63 @@
 import json
+import uwsgi
+from numpy.random import randint
 
-player_info = {}
+class PlayerManager:
+	def __init__(self):
+		self.players = {}	# Dictionary of uniqueID to a player in the players list.
+		self.IDCounter = 0
 
-def application(environ, start_response):
-	start_response('200 OK', [('Content-Type', 'text/html')])
+	def addPlayer(self, name):
+		ID = self.generateID()
+		position = self.generateStartLocation()
+		self.players[ID] = {'name': name, 'position': position}
 
-	name = 'anon'
-	if environ['REQUEST_METHOD'].upper() == 'POST':
-		request_body_size = int(environ['CONTENT_LENGTH'])
-		request_body = environ['wsgi.input'].read(request_body_size)
-		data = json.loads(request_body)
-		requestID = data['requestID']
+		return str(ID), self.getPlayers()
 
-		if requestID == 0:
-			name = data['name']
-			if name not in player_info:
-				player_info[name] = {'x': 0,'y': 0}
-			print 'name entered: ' + str(name)
-		elif requestID == 1:
-			name = data['name']
-			position = data['position']
-			print str(name) + ' is at position: ' + str(position)
-			player_info[name] = position
-			for key in player_info:
-				print 'viewing key: ' + str(key)
-				if key != name:
-					print 'found pos of anoher player!'
-					response = {'name': key, 'position': player_info[key]}
-					return json.dumps(response)
-	
-	return "not a valid request"
-	#return ["<h1 style='color:blue'>Hi " + name + ". Are you a cow?</h1>"]
+	def generateID(self):
+		self.IDCounter += 1
+
+		return self.IDCounter
+
+	def generateStartLocation(self):
+		x_pos = randint(600)
+		y_pos = randint(600)
+
+		return {'x': x_pos, 'y': y_pos}
+
+	def getPlayers(self):
+		return self.players
+
+	def setPlayerPosition(self, ID, position):
+		self.players[int(ID)]['position'] = position
+
+REQ_ID = {
+	'register_name': 0,
+	'update_position': 1,
+}
+
+pm = PlayerManager()
+
+def application(env, start_response):
+	# Open websocket connection
+	uwsgi.websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env.get('HTTP_ORIGIN', ''))
+	while True:
+		data = uwsgi.websocket_recv()
+		response = processData(data)
+		uwsgi.websocket_send(response)
+
+def processData(data):
+	data = json.loads(data)		# Load from json format into dictionary.
+	requestID = data['requestID']
+
+	if requestID == REQ_ID['register_name']:
+		name = data['name']
+		ID, players = pm.addPlayer(name)
+		response = {'ID': ID, 'players': players}
+	elif requestID == REQ_ID['update_position']:
+		ID = data['ID']
+		position = data['position']
+		pm.setPlayerPosition(ID, position)
+		response = {'players': pm.getPlayers()}
+
+	return json.dumps(response)

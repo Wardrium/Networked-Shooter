@@ -1,9 +1,13 @@
+// Player information.
+var players = {};
+var selfID = null;
+
 var MenuLayer = cc.Layer.extend({
-    ctor:function(){
+    ctor: function(){
         this._super();
         this.init();
     },
-    init:function(){
+    init: function(){
         this._super();
         var size = cc.director.getWinSize();
 
@@ -22,9 +26,11 @@ var MenuLayer = cc.Layer.extend({
             onKeyPressed:function(key, event){
                 switch(key){
                     case cc.KEY.enter:
-                        console.log('Enter pressed. Sending request...');
-                        sc.send.name({name: textInput.string});
-                        cc.director.runScene(GameLayer.scene(textInput.string));
+                        var data = {name: textInput.string};
+                        sc.openConnection(sc.REQ_ID.register_name, data, function(response){
+                            selfID = response['ID'];
+                            cc.director.runScene(GameLayer.scene(response['players']));
+                        });
                         break;
                 }
             }
@@ -41,83 +47,71 @@ MenuLayer.scene = function(){
 }
 
 
-var player;
-var otherPlayer;
-var otherPlayerTag;
-var otherPlayerConnected = false;
-
 var GameLayer = cc.Layer.extend({
-    ctor:function(name){
+    ctor:function(playerInfo){
         this._super();
-        this.init(name);
+        this.init(playerInfo);
     },
-    init:function(name){
+    init:function(playerInfo){
         this._super();
-        this.name = name;
-        
+
         var size = cc.director.getWinSize();
 
         var background = new cc.DrawNode();
         background.drawRect(cc.p(0, 0), cc.p(size.width, size.height), cc.color(0, 0, 0, 255));
         this.addChild(background, 0);
 
-        // YOUR PLAYER
-        player = new cc.DrawNode();
-        player.setPosition(cc.p(size.width / 2, size.height / 2));
-        player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(255, 0, 0, 255));
-        this.addChild(player, 1);
+        //Draw players
+        for (var ID in playerInfo){
+            // Player body
+            var player = new cc.DrawNode();
+            player.setPosition(cc.p(playerInfo[ID]['position']));
+            if (ID === selfID)
+                player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(0, 255, 0, 255));
+            else
+                player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(255, 0, 0, 255));
+            this.addChild(player, 1);
+            // Player nametag
+            var nameTag = cc.LabelTTF.create(playerInfo[ID]['name'], 'Arial', 20);
+            player.addChild(nameTag, 1);
 
-        var nameTag = cc.LabelTTF.create(name, "Arial", 20);
-        player.addChild(nameTag, 1);
+            players[ID] = player;   //Add reference to this player into global players dictionary
+        }
 
-        // OTHER PLAYER
-        otherPlayer = new cc.DrawNode();
-        otherPlayer.setPosition(cc.p(size.width / 2, size.height / 2));
-        otherPlayer.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(0, 255, 0, 255));
-        this.addChild(otherPlayer, 1);
-
-        otherPlayerTag = cc.LabelTTF.create('Unconnected', "Arial", 20);
-        otherPlayer.addChild(otherPlayerTag, 1);
-
+        // Move player with keyboard
         cc.eventManager.addListener({
             event: cc.EventListener.KEYBOARD,
             onKeyPressed:function(key, event){
-                switch(key){
-                    case cc.KEY.left:
-                        player.setPosition(cc.p(player.getPositionX() - 5, player.getPositionY()));
-                        break;
-                    case cc.KEY.right:
-                        player.setPosition(cc.p(player.getPositionX() + 5, player.getPositionY()));
-                        break;
-                    case cc.KEY.up:
-                        player.setPosition(cc.p(player.getPositionX(), player.getPositionY() + 5));
-                        break;
-                    case cc.KEY.down:
-                        player.setPosition(cc.p(player.getPositionX(), player.getPositionY() - 5));
-                        break;
-                }
+                var player = players[selfID];
+
+                if (key === cc.KEY.left)
+                    player.setPosition(cc.p(player.getPositionX() - 5, player.getPositionY()));
+                if (key === cc.KEY.right)
+                    player.setPosition(cc.p(player.getPositionX() + 5, player.getPositionY()));
+                if (key === cc.KEY.up)
+                    player.setPosition(cc.p(player.getPositionX(), player.getPositionY() + 5));
+                if (key === cc.KEY.down)
+                    player.setPosition(cc.p(player.getPositionX(), player.getPositionY() - 5));
             }
         }, this);
 
-        this.schedule(this.updatePosition, 0.2);
+        sc.setOnMessage(this.updateStates);
+        this.schedule(this.sendState, 0.1);
     },
-    updateOtherPlayer:function(otherPlayerInfo){
-        if (otherPlayerConnected == false){
-            otherPlayerConnected = true;
-            otherPlayerTag.setString(otherPlayerInfo.name);
-        }
-        else {
-            otherPlayer.setPosition(otherPlayerInfo.position.x, otherPlayerInfo.position.y);
-        }
+    sendState: function(){
+        sc.sendData(sc.REQ_ID.update_position, {ID: selfID, position: players[selfID].getPosition()});
     },
-    updatePosition:function(){
-        sc.send.position({name: this.name, position: player.getPosition()}, this.updateOtherPlayer);
+    updateStates: function(response){
+        var playerInfo = response['players']
+        for (var ID in playerInfo){
+            players[ID].setPosition(cc.p(playerInfo[ID]['position']));
+        }
     },
 });
 
-GameLayer.scene = function(name){
+GameLayer.scene = function(playerInfo){
     var scene = new cc.Scene();
-    var layer = new GameLayer(name);
+    var layer = new GameLayer(playerInfo);
     scene.addChild(layer);
     return scene;
 }
@@ -132,10 +126,7 @@ window.onload = function(){
         cc.view.setDesignResolutionSize(targetWidth, targetHeight, cc.ResolutionPolicy.SHOW_ALL);
         cc.view.resizeWithBrowserSize(true);
 
-        //load resources
-        cc.LoaderScene.preload(["HelloWorld.png"], function () {
-            cc.director.runScene(MenuLayer.scene());
-        }, this);
+        cc.director.runScene(MenuLayer.scene());
     };
     cc.game.run("gameCanvas");
 };

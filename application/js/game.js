@@ -2,6 +2,25 @@
 var players = {};
 var selfID = null;
 
+// Server communication
+var sc = {
+    Initialize: function(){
+        socket = io.connect('http://98.243.38.5:8080');
+    },
+    Register: function(name){
+        socket.emit('register', name);
+    },
+    RegisterResponse: function(callback){
+        socket.on('register', function(data){
+            callback(data['ID'], data['players']);
+        });
+    },
+    UpdateMovement: function(position, direction){
+        socket.emit('update', {'position': position, 'direction': direction});
+    },
+}
+
+
 var MenuLayer = cc.Layer.extend({
     ctor: function(){
         this._super();
@@ -26,12 +45,12 @@ var MenuLayer = cc.Layer.extend({
             onKeyPressed:function(key, event){
                 switch(key){
                     case cc.KEY.enter:
-                        var data = {name: textInput.string};
-                        /*sc.openConnection(sc.REQ_ID.register_name, data, function(response){
-                            selfID = response['ID'];
-                            cc.director.runScene(GameLayer.scene(response['players']));
-                        });*/
-                        var socket = io.connect('http://98.243.38.5:8080');
+                        sc.Initialize();
+                        sc.Register(textInput.string);
+                        sc.RegisterResponse(function(ID, players){
+                            selfID = ID;
+                            cc.director.runScene(GameLayer.scene(players));
+                        });
                         break;
                 }
             }
@@ -96,8 +115,8 @@ var GameLayer = cc.Layer.extend({
             }
         }, this);
 
-        sc.setOnMessage(this.updateStates);
-        this.schedule(this.sendState, 0.1);
+        //sc.setOnMessage(this.updateStates);
+        //this.schedule(this.sendState, 0.1);
     },
     sendState: function(){
         sc.sendData(sc.REQ_ID.update_position, {ID: selfID, position: players[selfID].getPosition()});

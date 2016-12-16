@@ -27,10 +27,11 @@ var MenuLayer = cc.Layer.extend({
                 switch(key){
                     case cc.KEY.enter:
                         var data = {name: textInput.string};
-                        sc.openConnection(sc.REQ_ID.register_name, data, function(response){
+                        /*sc.openConnection(sc.REQ_ID.register_name, data, function(response){
                             selfID = response['ID'];
                             cc.director.runScene(GameLayer.scene(response['players']));
-                        });
+                        });*/
+                        var socket = io.connect('http://98.243.38.5:8080');
                         break;
                 }
             }

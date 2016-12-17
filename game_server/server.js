@@ -1,4 +1,7 @@
-// Server
+// Server settings
+var update_time = 0.1;	// How often to send updates to clients on movement data, in seconds.
+
+// Server-----------------------------------------------------
 var express = require('express');
 var app = express();
 var server = require('http').createServer(app);
@@ -18,30 +21,54 @@ io.sockets.on('connection', function(socket){
 
 	// Register
 	socket.on('register', function(name){
-		pm.AddNewPlayer(name);
-		socket.emit('register', {'ID': connections.indexOf(socket), 'players': pm.players});
+		ID = pm.AddNewPlayer(name);
+		socket.emit('register', {'ID': ID, 'players': pm.players});
+		for (var i = 0; i < connections.length - 1; ++i){
+			connections[i].emit('add player', pm.players[pm.players.length - 1]);
+		}
 	});
+
+	// Update player position
+	socket.on('update', function(data){
+		pm.players[connections.indexOf(socket)]['position'] = data['position'];
+		pm.players[connections.indexOf(socket)]['velocity'] = data['velocity'];
+	});
+
+	// Alert all clients of other clients' positions
+	setInterval(function (){
+		for (var i = 0; i < connections.length; ++i){
+			connections[i].emit('update', pm.players);
+		}
+	}, update_time);
 
 	// Disconnect
 	socket.on('disconnect', function(data){
+		var DC_ID = pm.players[connections.indexOf(socket)]['ID'];
 		connections.splice(connections.indexOf(socket), 1);
+		pm.players.splice(connections.indexOf(socket), 1);
+		for (var i = 0; i < connections.length; ++i){
+			connections[i].emit('remove player', DC_ID);
+		}
 		console.log("Disconnected: %s sockets connected", connections.length);
 	})
 });
 
-// Player manager
+// Player manager---------------------------------------------------
 var pm = {
+	ID_count: 0,
 	players: [],
 
 	AddNewPlayer: function(name){
-		position = this.GeneratePosition();
-		color = this.GenerateColor();
-		this.players.push({'name': name, 'position': position, 'color': color});
+		position = this._GeneratePosition();
+		color = this._GenerateColor();
+		velocity = {'x': 0, 'y': 0};
+		this.players.push({'ID': this.ID_count, 'name': name, 'position': position, 'velocity': velocity, 'color': color});
+		return this.ID_count++;
 	},
-	GeneratePosition: function(){
+	_GeneratePosition: function(){
 		return {'x': Math.floor((Math.random() * 600)), 'y': Math.floor((Math.random() * 600))};
 	},
-	GenerateColor: function(){
+	_GenerateColor: function(){
 		return 'temp';
 	}
 }

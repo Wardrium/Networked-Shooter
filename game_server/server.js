@@ -30,8 +30,14 @@ io.sockets.on('connection', function(socket){
 
 	// Update player position
 	socket.on('update', function(data){
-		pm.players[connections.indexOf(socket)]['position'] = data['position'];
-		pm.players[connections.indexOf(socket)]['velocity'] = data['velocity'];
+		if (connections.indexOf(socket) < pm.players.length){
+			pm.players[connections.indexOf(socket)]['position'] = data['position'];
+			pm.players[connections.indexOf(socket)]['velocity'] = data['velocity'];
+		}
+		else {
+			console.log('Force disconnected');
+			socket.disconnect();
+		}
 	});
 
 	// Alert all clients of other clients' positions
@@ -43,12 +49,14 @@ io.sockets.on('connection', function(socket){
 
 	// Disconnect
 	socket.on('disconnect', function(data){
-		var DC_ID = pm.players[connections.indexOf(socket)]['ID'];
-		connections.splice(connections.indexOf(socket), 1);
-		pm.players.splice(connections.indexOf(socket), 1);
-		for (var i = 0; i < connections.length; ++i){
-			connections[i].emit('remove player', DC_ID);
+		if (connections.indexOf(socket) < pm.players.length){
+			var DC_ID = pm.players[connections.indexOf(socket)]['ID'];
+			pm.players.splice(connections.indexOf(socket), 1);
+			for (var i = 0; i < connections.length; ++i){
+				connections[i].emit('remove player', DC_ID);
+			}
 		}
+		connections.splice(connections.indexOf(socket), 1);
 		console.log("Disconnected: %s sockets connected", connections.length);
 	})
 });

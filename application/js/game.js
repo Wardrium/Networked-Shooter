@@ -2,7 +2,7 @@
 var tick_rate = 0.015;  // How often server updates game state, in seconds.
 
 // Game Settings
-var movement_speed = 20;    // How many pixels to move per game tick.
+var movement_speed = 1;    // How many pixels to move per game tick.
 
 // Game information
 var gm = {
@@ -82,7 +82,7 @@ var MenuLayer = cc.Layer.extend({
                         sc.Initialize();
                         sc.Register(textInput.string);
                         sc.OnRegister(function(ID, playerInfo){
-                            selfID = ID;
+                            gm.selfID = ID;
                             cc.director.runScene(GameLayer.scene(playerInfo));
                         });
                         break;
@@ -173,6 +173,10 @@ var GameLayer = cc.Layer.extend({
         sc.OnUpdateMovement(function(playerInfo){
             that.UpdatePlayersMovement(playerInfo);
         });
+
+        this.schedule(function(){
+            that.update();
+        }, tick_rate);
         
         /*this.schedule(function(){
             that.UpdateSelfMovement();
@@ -181,15 +185,28 @@ var GameLayer = cc.Layer.extend({
         //this.schedule(this.sendState, 0.1);
     },
     update: function(dt){
-        // Move players
-
+        // Move player
+        var player = gm.players[gm.selfID].gameObject;
+        if (gm.input[cc.KEY.left]){
+            player.setPosition(cc.p(player.getPositionX() - movement_speed, player.getPositionY()));
+        }
+        else if (gm.input[cc.KEY.right]){
+            player.setPosition(cc.p(player.getPositionX() + movement_speed, player.getPositionY()));
+        }
+        if (gm.input[cc.KEY.up]){
+            player.setPosition(cc.p(player.getPositionX(), player.getPositionY() + movement_speed));
+        }
+        else if (gm.input[cc.KEY.down]){
+            player.setPosition(cc.p(player.getPositionX(), player.getPositionY() - movement_speed));
+        }
     },
     AddPlayer: function(ID, name, color, position){
         // Player body
         var player = new cc.DrawNode();
         player.setPosition(cc.p(position));
-        if (ID === selfID)
+        if (ID == gm.selfID){
             player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(0, 255, 0, 255));
+        }
         else
             player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(255, 0, 0, 255));
         this.addChild(player, 1);
@@ -204,13 +221,13 @@ var GameLayer = cc.Layer.extend({
         delete gm.players[ID];
     },
     UpdateSelfMovement: function(){
-        var x_pos = gm.players[selfID].gameObject.getPositionX();
-        var y_pos = gm.players[selfID].gameObject.getPositionY();
+        var x_pos = gm.players[gm.selfID].gameObject.getPositionX();
+        var y_pos = gm.players[gm.selfID].gameObject.getPositionY();
         sc.UpdateMovement({'x': x_pos, 'y': y_pos}, gm.players[selfID].velocity);
     },
     UpdatePlayersMovement: function(playerInfo){
         for (var i = 0; i < playerInfo.length; ++i){
-            if (playerInfo[i]['ID'] !== selfID){
+            if (playerInfo[i]['ID'] !== gm.selfID){
                 gm.players[playerInfo[i]['ID']].gameObject.setPosition(cc.p(playerInfo[i].position));
                 gm.players[playerInfo[i]['ID']].velocity = playerInfo[i].velocity;
             }

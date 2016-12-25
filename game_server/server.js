@@ -3,7 +3,7 @@ var update_time = 0.045;	// How often to send updates to clients, in seconds.
 var tick_rate = 0.015;	// How often server updates game state, in seconds.
 
 // Game Settings
-var movement_speed = 20;	// How many pixels to move per game tick.
+var movement_speed = 1;	// How many pixels to move per game tick.
 
 // Cocos2D v3.9 keys
 var cc = {KEY: {

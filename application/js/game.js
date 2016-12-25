@@ -1,15 +1,27 @@
-// Game settings
-var update_time = 0.1;  // How often to send updates to game server on movement data, in seconds.
-var move_speed = 50.0;
+// Server settings
+var tick_rate = 0.015;  // How often server updates game state, in seconds.
 
-// Player information
-var players = {};
-var selfID = null;
+// Game Settings
+var movement_speed = 20;    // How many pixels to move per game tick.
+
+// Game information
+var gm = {
+    timestamp: 0,
+    players: {},
+    selfID: -1,
+    input: {}   // map(cc.KEY, keyDown)
+}
 
 // Server communication
 var sc = {
     Initialize: function(){
-        socket = io.connect('http://98.243.38.5:8080');
+        socket = io.connect('http://97.69.161.115:8080');
+        socket.on('connect', function(data){
+            console.log('connected');
+        })
+        socket.on('disconnect', function(data){
+            console.log('disconnected');
+        });
     },
     // Send data to server
     Register: function(name){
@@ -39,10 +51,10 @@ var sc = {
         socket.on('update', function(data){
             callback(data);
         });
-    }
+    },
 }
 
-
+// Rendering of actual game------------------------------
 var MenuLayer = cc.Layer.extend({
     ctor: function(){
         this._super();
@@ -103,35 +115,47 @@ var GameLayer = cc.Layer.extend({
         this.addChild(background, 0);
 
         //Draw players
-        for (var i = 0; i < playerInfo.length; ++i){
-            this.AddPlayer(playerInfo[i]['ID'], playerInfo[i]['name'], playerInfo[i]['position'], playerInfo[i]['velocity']);
+        for (var ID in playerInfo){
+            this.AddPlayer(ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
         }
 
-        // Set player velocity
+        // Set player input
         cc.eventManager.addListener({
             event: cc.EventListener.KEYBOARD,
             onKeyPressed:function(key, event){
-                if (key === cc.KEY.left)
-                    players[selfID]['velocity']['x'] = -move_speed;
-                else if (key === cc.KEY.right)
-                    players[selfID]['velocity']['x'] = move_speed;
-                if (key === cc.KEY.up)
-                    players[selfID]['velocity']['y'] = move_speed;
-                else if (key === cc.KEY.down)
-                    players[selfID]['velocity']['y'] = -move_speed;
+                switch(key){
+                    case cc.KEY.left:
+                        gm.input[cc.KEY.left] = true;
+                        break;
+                    case cc.KEY.right:
+                        gm.input[cc.KEY.right] = true;
+                        break;
+                    case cc.KEY.up:
+                        gm.input[cc.KEY.up] = true;
+                        break;
+                    case cc.KEY.down:
+                        gm.input[cc.KEY.down] = true;
+                        break;
+                }
             }
         }, this);
         cc.eventManager.addListener({
             event: cc.EventListener.KEYBOARD,
             onKeyReleased:function(key, event){
-                if (key === cc.KEY.left)
-                    players[selfID]['velocity']['x'] = 0;
-                else if (key === cc.KEY.right)
-                    players[selfID]['velocity']['x'] = 0;
-                if (key === cc.KEY.up)
-                    players[selfID]['velocity']['y'] = 0;
-                else if (key === cc.KEY.down)
-                    players[selfID]['velocity']['y'] = 0;
+                switch(key){
+                    case cc.KEY.left:
+                        gm.input[cc.KEY.left] = false;
+                        break;
+                    case cc.KEY.right:
+                        gm.input[cc.KEY.right] = false;
+                        break;
+                    case cc.KEY.up:
+                        gm.input[cc.KEY.up] = false;
+                        break;
+                    case cc.KEY.down:
+                        gm.input[cc.KEY.down] = false;
+                        break;
+                }
             }
         }, this);
 
@@ -139,7 +163,9 @@ var GameLayer = cc.Layer.extend({
         var that = this;    // Maintain this reference for callbacks
         this.scheduleUpdate();
         sc.OnAddPlayer(function(playerInfo){
-            that.AddPlayer(playerInfo['ID'], playerInfo['name'], playerInfo['position'], playerInfo['velocity']);
+            for (ID in playerInfo){
+                that.AddPlayer(ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
+            }
         });
         sc.OnRemovePlayer(function(ID){
             that.RemovePlayer(ID);
@@ -148,19 +174,17 @@ var GameLayer = cc.Layer.extend({
             that.UpdatePlayersMovement(playerInfo);
         });
         
-        this.schedule(function(){
+        /*this.schedule(function(){
             that.UpdateSelfMovement();
-        }, update_time);
+        }, update_time);*/
         //sc.setOnMessage(this.updateStates);
         //this.schedule(this.sendState, 0.1);
     },
     update: function(dt){
-        // Move the player
-        var x_pos = players[selfID]['gameObject'].getPositionX() + players[selfID]['velocity']['x'] * dt;
-        var y_pos = players[selfID]['gameObject'].getPositionY() + players[selfID]['velocity']['y'] * dt;
-        players[selfID]['gameObject'].setPosition(cc.p(x_pos, y_pos));
+        // Move players
+
     },
-    AddPlayer: function(ID, name, position, velocity){
+    AddPlayer: function(ID, name, color, position){
         // Player body
         var player = new cc.DrawNode();
         player.setPosition(cc.p(position));
@@ -173,22 +197,23 @@ var GameLayer = cc.Layer.extend({
         var nameTag = cc.LabelTTF.create(name, 'Arial', 20);
         player.addChild(nameTag, 1);
 
-        players[ID] = {'gameObject': player, 'velocity': velocity};   //Add reference to this player into global players dictionary
+        gm.players[ID] = {'gameObject': player};   //Add reference to this player into global players dictionary
     },
     RemovePlayer: function(ID){
-        players[ID]['gameObject'].removeFromParentAndCleanup(true);
-        delete players[ID];
+        gm.players[ID].gameObject.removeFromParentAndCleanup(true);
+        delete gm.players[ID];
     },
     UpdateSelfMovement: function(){
-        var x_pos = players[selfID]['gameObject'].getPositionX();
-        var y_pos = players[selfID]['gameObject'].getPositionY();
-        sc.UpdateMovement({'x': x_pos, 'y': y_pos}, players[selfID]['velocity']);
+        var x_pos = gm.players[selfID].gameObject.getPositionX();
+        var y_pos = gm.players[selfID].gameObject.getPositionY();
+        sc.UpdateMovement({'x': x_pos, 'y': y_pos}, gm.players[selfID].velocity);
     },
     UpdatePlayersMovement: function(playerInfo){
         for (var i = 0; i < playerInfo.length; ++i){
             if (playerInfo[i]['ID'] !== selfID){
-                players[i]['gameObject'].setPosition(cc.p(playerInfo[i]['position']));
-            }           
+                gm.players[playerInfo[i]['ID']].gameObject.setPosition(cc.p(playerInfo[i].position));
+                gm.players[playerInfo[i]['ID']].velocity = playerInfo[i].velocity;
+            }
         }
     },
 });

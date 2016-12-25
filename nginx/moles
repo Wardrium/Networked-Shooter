@@ -4,7 +4,7 @@ upstream gameserver {
 
 server {
 	listen 8080;
-	server_name 98.243.38.5;
+	server_name 97.69.161.115;
 
 	location / {
 		proxy_pass http://gameserver/;
@@ -18,7 +18,7 @@ server {
 
 server {
 	listen 0.0.0.0:80;
-	server_name 98.243.38.5;
+	server_name 97.69.161.115;
 
 	root /home/ward/Documents/Moles/application;
 

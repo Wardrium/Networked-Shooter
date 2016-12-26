@@ -227,7 +227,8 @@ io.sockets.on('connection', function(socket){
 	socket.on('register', function(name){
 		var ID = gm.AddNewPlayer(name);
 		gm.GetConnection(socket, false).ID = ID;
-		socket.emit('register', {'ID': ID, 'players': gm.GetPlayersFull()});
+		socket.emit('register', {'settings': {'timestamp': gm.timestamp, 'tick_rate': tick_rate, 'movement_speed': movement_speed},
+								'ID': ID, 'players': gm.GetPlayersFull()});
 		for (var i = 0; i < gm.connections.length - 1; ++i){
 			gm.connections[i].socket.emit('add player', gm.GetPlayerFull(ID));
 		}

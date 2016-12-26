@@ -242,12 +242,12 @@ io.sockets.on('connection', function(socket){
 		gm.SetPlayerInput(connection.ID, data.input);
 	});
 
-	// Alert all clients of other clients' positions
-	/*setInterval(function (){
-		for (var i = 0; i < connections.length; ++i){
-			connections[i].socket.emit('update', gm.GetPlayersUpdate());
+	// Send position updates to players
+	setInterval(function (){
+		for (var i = 0; i < gm.connections.length; ++i){
+			gm.connections[i].socket.emit('update', gm.GetPlayersUpdate());
 		}
-	}, update_time);*/
+	}, update_time * 1000);
 
 	// Disconnect
 	socket.on('disconnect', function(data){
@@ -261,6 +261,7 @@ io.sockets.on('connection', function(socket){
 	})
 });
 
+// Update game state
 setInterval(function(){
 	gm.UpdateGame();
 }, tick_rate * 1000);	// Multiply by a thousand to get milliseconds

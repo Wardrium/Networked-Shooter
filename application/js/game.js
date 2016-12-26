@@ -49,7 +49,7 @@ var sc = {
             callback(data);
         });
     },
-    OnUpdateMovement: function(callback){
+    OnUpdate: function(callback){
         socket.on('update', function(data){
             callback(data);
         });
@@ -174,8 +174,8 @@ var GameLayer = cc.Layer.extend({
         sc.OnRemovePlayer(function(ID){
             that.RemovePlayer(ID);
         });
-        sc.OnUpdateMovement(function(playerInfo){
-            that.UpdatePlayersMovement(playerInfo);
+        sc.OnUpdate(function(playerInfo){
+            that.UpdatePlayers(playerInfo);
         });
 
         this.schedule(function(){
@@ -184,10 +184,7 @@ var GameLayer = cc.Layer.extend({
 
         this.schedule(function(){
             that.UpdateInput();
-        }, update_time); 
-        
-        //sc.setOnMessage(this.updateStates);
-        //this.schedule(this.sendState, 0.1);
+        }, update_time);
     },
     Update: function(dt){
         // Move player
@@ -235,11 +232,10 @@ var GameLayer = cc.Layer.extend({
             gm.unprocessed_input = [];
         }
     },
-    UpdatePlayersMovement: function(playerInfo){
-        for (var i = 0; i < playerInfo.length; ++i){
-            if (playerInfo[i]['ID'] !== gm.selfID){
-                gm.players[playerInfo[i]['ID']].gameObject.setPosition(cc.p(playerInfo[i].position));
-                gm.players[playerInfo[i]['ID']].velocity = playerInfo[i].velocity;
+    UpdatePlayers: function(playerInfo){
+        for (var ID in playerInfo){
+            if (ID != gm.selfID){
+                gm.players[ID].gameObject.setPosition(cc.p(playerInfo[ID].position));
             }
         }
     },

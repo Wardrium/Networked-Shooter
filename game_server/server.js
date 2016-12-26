@@ -180,7 +180,8 @@ var gm = {
 		return player;
 	},
 	SetPlayerInput: function(ID, inputs){
-		this.inputs[ID] = inputs;
+		this.inputs[ID] = this.inputs[ID].concat(inputs);
+		console.log(this.inputs[ID]);
 	},
 	RemovePlayer: function(ID){
 		delete this.players[ID];
@@ -194,16 +195,16 @@ var gm = {
 				var key = this.inputs[ID][i];
 				switch(key){
 					case cc.KEY.left:
-						players[ID].position.x -= movement_speed;
+						this.players[ID].position.x -= movement_speed;
 						break;
 					case cc.KEY.right:
-						players[ID].position.x += movement_speed;
+						this.players[ID].position.x += movement_speed;
 						break;
 					case cc.KEY.up:
-						players[ID].position.y += movement_speed;
+						this.players[ID].position.y += movement_speed;
 						break;
 					case cc.KEY.down:
-						players[ID].position.y -= movement_speed;
+						this.players[ID].position.y -= movement_speed;
 						break;
 				}
 			}
@@ -212,6 +213,7 @@ var gm = {
 	},
 };
 
+// NodeJS server
 server.listen(8081, "127.0.0.1");
 console.log('Server running...')
 
@@ -235,9 +237,9 @@ io.sockets.on('connection', function(socket){
 	});
 
 	// Update player input
-	socket.on('update', function(inputs){
+	socket.on('update', function(data){
 		var connection = gm.GetConnection(socket, false);
-		gm.SetPlayerInput(connection.ID, inputs);
+		gm.SetPlayerInput(connection.ID, data.input);
 	});
 
 	// Alert all clients of other clients' positions
@@ -258,3 +260,7 @@ io.sockets.on('connection', function(socket){
 		console.log("Disconnected: %s sockets connected", gm.connections.length);
 	})
 });
+
+setInterval(function(){
+	gm.UpdateGame();
+}, tick_rate * 1000);	// Multiply by a thousand to get milliseconds

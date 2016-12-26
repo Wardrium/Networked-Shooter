@@ -21,7 +21,10 @@ var sc = {
         socket.on('connect', function(data){
             console.log('connected');
         })
+    },
+    OnDisconnect:function(callback){
         socket.on('disconnect', function(data){
+            callback();
             console.log('disconnected');
         });
     },
@@ -166,6 +169,9 @@ var GameLayer = cc.Layer.extend({
 
         // Schedule asynchronous updates
         var that = this;    // Maintain this reference for callbacks
+        sc.OnDisconnect(function(){
+            that.LostConnection();
+        });
         sc.OnAddPlayer(function(playerInfo){
             for (ID in playerInfo){
                 that.AddPlayer(ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
@@ -238,6 +244,14 @@ var GameLayer = cc.Layer.extend({
                 gm.players[ID].gameObject.setPosition(cc.p(playerInfo[ID].position));
             }
         }
+    },
+    LostConnection: function(){
+        var size = cc.director.getWinSize();
+        var disconnectLabel = cc.LabelTTF.create("Disconnected", 'Arial', 30);
+        disconnectLabel.color = cc.color(255, 0, 0, 255);
+        var labelSize = disconnectLabel.getContentSize();
+        disconnectLabel.setPosition(cc.p(size.width - labelSize.width / 2, labelSize.height / 2));
+        this.addChild(disconnectLabel, 5);
     },
 });
 

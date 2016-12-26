@@ -181,7 +181,6 @@ var gm = {
 	},
 	SetPlayerInput: function(ID, inputs){
 		this.inputs[ID] = this.inputs[ID].concat(inputs);
-		console.log(this.inputs[ID]);
 	},
 	RemovePlayer: function(ID){
 		delete this.players[ID];

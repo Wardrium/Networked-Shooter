@@ -24,21 +24,21 @@ var gm = {
         // Move player
         var player = gm.players[gm.selfID].gameObject;
         var target_pos = player.getPosition();
-        if (gm.current_input[cc.KEY.left]){
+        if (gm.current_input[cc.KEY.a]){
             target_pos.x -= movement_speed;
-            gm.unprocessed_input.push(cc.KEY.left);
+            gm.unprocessed_input.push(cc.KEY.a);
         }
-        else if (gm.current_input[cc.KEY.right]){
+        else if (gm.current_input[cc.KEY.d]){
             target_pos.x += movement_speed;
-            gm.unprocessed_input.push(cc.KEY.right);
+            gm.unprocessed_input.push(cc.KEY.d);
         }
-        if (gm.current_input[cc.KEY.up]){
+        if (gm.current_input[cc.KEY.w]){
             target_pos.y += movement_speed;
-            gm.unprocessed_input.push(cc.KEY.up);
+            gm.unprocessed_input.push(cc.KEY.w);
         }
-        else if (gm.current_input[cc.KEY.down]){
+        else if (gm.current_input[cc.KEY.s]){
             target_pos.y -= movement_speed;
-            gm.unprocessed_input.push(cc.KEY.down);
+            gm.unprocessed_input.push(cc.KEY.s);
         }
         if (target_pos != null){    // Player issued a movement command.
             if (target_pos.x < 50)
@@ -146,7 +146,7 @@ var gm = {
     UpdatePlayers: function(playerInfo){
         for (var ID in playerInfo){
             if (ID != gm.selfID){
-                this.MovePlayer(gm.players[ID].gameObject, cc.p(playerInfo[ID].position), 0.04, 3);
+                this.MovePlayer(gm.players[ID].gameObject, cc.p(playerInfo[ID].position), 0.045, 3);
             }
         }
     },
@@ -282,17 +282,17 @@ var GameLayer = cc.Layer.extend({
             event: cc.EventListener.KEYBOARD,
             onKeyPressed:function(key, event){
                 switch(key){
-                    case cc.KEY.left:
-                        gm.current_input[cc.KEY.left] = true;
+                    case cc.KEY.a:
+                        gm.current_input[cc.KEY.a] = true;
                         break;
-                    case cc.KEY.right:
-                        gm.current_input[cc.KEY.right] = true;
+                    case cc.KEY.d:
+                        gm.current_input[cc.KEY.d] = true;
                         break;
-                    case cc.KEY.up:
-                        gm.current_input[cc.KEY.up] = true;
+                    case cc.KEY.w:
+                        gm.current_input[cc.KEY.w] = true;
                         break;
-                    case cc.KEY.down:
-                        gm.current_input[cc.KEY.down] = true;
+                    case cc.KEY.s:
+                        gm.current_input[cc.KEY.s] = true;
                         break;
                 }
             }
@@ -301,17 +301,17 @@ var GameLayer = cc.Layer.extend({
             event: cc.EventListener.KEYBOARD,
             onKeyReleased:function(key, event){
                 switch(key){
-                    case cc.KEY.left:
-                        gm.current_input[cc.KEY.left] = false;
+                    case cc.KEY.a:
+                        gm.current_input[cc.KEY.a] = false;
                         break;
-                    case cc.KEY.right:
-                        gm.current_input[cc.KEY.right] = false;
+                    case cc.KEY.d:
+                        gm.current_input[cc.KEY.d] = false;
                         break;
-                    case cc.KEY.up:
-                        gm.current_input[cc.KEY.up] = false;
+                    case cc.KEY.w:
+                        gm.current_input[cc.KEY.w] = false;
                         break;
-                    case cc.KEY.down:
-                        gm.current_input[cc.KEY.down] = false;
+                    case cc.KEY.s:
+                        gm.current_input[cc.KEY.s] = false;
                         break;
                 }
             }

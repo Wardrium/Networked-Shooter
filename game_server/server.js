@@ -197,16 +197,16 @@ var gm = {
 			for (var i = 0; i < this.inputs[ID].length; ++i){
 				var key = this.inputs[ID][i];
 				switch(key){
-					case cc.KEY.left:
+					case cc.KEY.a:
 						this.players[ID].position.x -= movement_speed;
 						break;
-					case cc.KEY.right:
+					case cc.KEY.d:
 						this.players[ID].position.x += movement_speed;
 						break;
-					case cc.KEY.up:
+					case cc.KEY.w:
 						this.players[ID].position.y += movement_speed;
 						break;
-					case cc.KEY.down:
+					case cc.KEY.s:
 						this.players[ID].position.y -= movement_speed;
 						break;
 				}

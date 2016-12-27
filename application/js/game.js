@@ -10,7 +10,7 @@ var shooting_cooldown; // How many ticks a player has to wait before shooting ag
 
 var game_boundary = cc.rect(0, 0, 960, 640);
 
-// Game information
+// Game manager
 var gm = {
     timestamp: 0,
     players: {},    // map(ID, {gameObject})
@@ -19,6 +19,129 @@ var gm = {
     aimer: {},    // gameObject of aim triangle. {gameObject}
     current_input: {},   // map(cc.KEY, keyDown)
     unprocessed_input: [],  // Array of input that has not been sent to server.
+
+    Update: function(){
+        // Move player
+        var player = gm.players[gm.selfID].gameObject;
+        if (gm.current_input[cc.KEY.left]){
+            player.setPosition(cc.p(player.getPositionX() - movement_speed, player.getPositionY()));
+            gm.unprocessed_input.push(cc.KEY.left);
+        }
+        else if (gm.current_input[cc.KEY.right]){
+            player.setPosition(cc.p(player.getPositionX() + movement_speed, player.getPositionY()));
+            gm.unprocessed_input.push(cc.KEY.right);
+        }
+        if (gm.current_input[cc.KEY.up]){
+            player.setPosition(cc.p(player.getPositionX(), player.getPositionY() + movement_speed));
+            gm.unprocessed_input.push(cc.KEY.up);
+        }
+        else if (gm.current_input[cc.KEY.down]){
+            player.setPosition(cc.p(player.getPositionX(), player.getPositionY() - movement_speed));
+            gm.unprocessed_input.push(cc.KEY.down);
+        }
+        // Move bullets
+        for (var ID in gm.bullets){
+            for (var i = 0; i < gm.bullets[ID].length; ++i){
+                var bullet = gm.bullets[ID][i];
+                bullet.gameObject.setPosition(cc.pAdd(bullet.gameObject.getPosition(), bullet.velocity));
+                var bullet_rect = bullet.gameObject.getBoundingBox();
+                if (!cc.rectIntersectsRect(bullet_rect, game_boundary)){
+                    bullet.gameObject.removeFromParentAndCleanup(true);
+                    gm.bullets[ID].splice(i, 1);
+                    i -= 1; // Move i back one to make up for removing bullet from array.
+                }
+            }
+        }
+    },
+    // Move player gameObject to given end position within time seconds and num_updates number of updates.
+    MovePlayer: function(player, end_pos, time, num_updates){
+        var start_pos = player.getPosition();
+        var current_time = 0;
+        var delta_time = time / num_updates;
+
+        this._MovePlayer(player, start_pos, end_pos, time, current_time, delta_time);
+    },
+    // Helper function for MovePlayer to be called recursively.
+    _MovePlayer(player, start_pos, end_pos, time, current_time, delta_time){
+        current_time += delta_time;
+        if (current_time > time){
+            current_time = time;
+        }
+        var x_pos = cc.lerp(start_pos.x, end_pos.x, current_time / time);
+        var y_pos = cc.lerp(start_pos.y, end_pos.y, current_time / time);
+        var pos = cc.p(x_pos, y_pos);
+        player.setPosition(pos);
+        var that = this;
+        if (current_time < time){
+            setTimeout(function(){
+                that._MovePlayer(player, start_pos, end_pos, time, current_time, delta_time);
+            }, delta_time * 1000);
+        }
+    },
+    RotateAimer: function(mousePos){
+        var diff = cc.pSub(mousePos, gm.players[gm.selfID].gameObject.getPosition());
+        var angle = cc.pAngle(diff, cc.p(1, 0));    // Angle in radians
+        if (diff.y > 0)
+            angle = Math.PI + (Math.PI - angle);
+        var pos = cc.pRotateByAngle(cc.p(70, 0), cc.p(0, 0), -angle);
+        gm.aimer.gameObject.setRotation(angle * 180 / Math.PI);     // Convert to degrees
+        gm.aimer.gameObject.setPosition(pos);
+    },
+    Shoot: function(layer){
+        var bullet = new cc.DrawNode();
+        var pos = cc.pAdd(gm.players[gm.selfID].gameObject.getPosition(), gm.aimer.gameObject.getPosition());
+        bullet.setPosition(pos);
+        bullet.drawCircle(cc.p(0, 0), 5, 360, 10, false, 4, cc.color(0, 0, 255, 255));
+        layer.addChild(bullet, 1);
+        var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), bullet_speed);
+        gm.bullets[gm.selfID].push({'gameObject': bullet, 'velocity': velocity});
+    },
+    AddPlayer: function(layer, ID, name, color, position){
+        // Player body
+        var player = new cc.DrawNode();
+        player.setPosition(cc.p(position));
+        if (ID == gm.selfID){
+            player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(0, 255, 0, 255));
+            gm.aimer.gameObject = new cc.DrawNode();
+            player.addChild(gm.aimer.gameObject);
+            gm.aimer.gameObject.setPosition(cc.p(70, 0));
+            gm.aimer.gameObject.drawPoly([cc.p(-15, 15), cc.p(-15, -15), cc.p(0, 0)], 3, true, true);
+        }
+        else
+            player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(255, 0, 0, 255));
+        layer.addChild(player, 1);
+        // Player nametag
+        var nameTag = cc.LabelTTF.create(name, 'Arial', 20);
+        player.addChild(nameTag, 1);
+
+        gm.bullets[ID] = [];
+        gm.players[ID] = {'gameObject': player};   //Add reference to this player into global players dictionary
+    },
+    RemovePlayer: function(ID){
+        gm.players[ID].gameObject.removeFromParentAndCleanup(true);
+        delete gm.players[ID];
+    },
+    UpdateInput: function(){
+        if (gm.unprocessed_input.length > 0){
+            sc.UpdateInput(gm.unprocessed_input);
+            gm.unprocessed_input = [];
+        }
+    },
+    UpdatePlayers: function(playerInfo){
+        for (var ID in playerInfo){
+            if (ID != gm.selfID){
+                this.MovePlayer(gm.players[ID].gameObject, cc.p(playerInfo[ID].position), 0.04, 3);
+            }
+        }
+    },
+    LostConnection: function(){
+        var size = cc.director.getWinSize();
+        var disconnectLabel = cc.LabelTTF.create("Disconnected", 'Arial', 30);
+        disconnectLabel.color = cc.color(255, 0, 0, 255);
+        var labelSize = disconnectLabel.getContentSize();
+        disconnectLabel.setPosition(cc.p(size.width - labelSize.width / 2, labelSize.height / 2));
+        this.addChild(disconnectLabel, 5);
+    },
 }
 
 // Server communication
@@ -134,7 +257,7 @@ var GameLayer = cc.Layer.extend({
 
         //Draw players
         for (var ID in playerInfo){
-            this.AddPlayer(ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
+            gm.AddPlayer(this, ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
         }
 
         var that = this;    // Maintain this reference for callbacks
@@ -180,162 +303,41 @@ var GameLayer = cc.Layer.extend({
         cc.eventManager.addListener({
             event: cc.EventListener.MOUSE,
             onMouseMove: function(event){
-                that.RotateAimer(event.getLocation());
+                gm.RotateAimer(event.getLocation());
             }
         }, this);
         cc.eventManager.addListener({
             event: cc.EventListener.MOUSE,
             onMouseUp: function(event){
-                that.Shoot();
+                gm.Shoot(that);
             }
         }, this);
 
         // Schedule asynchronous updates
         sc.OnDisconnect(function(){
-            that.LostConnection();
+            gm.LostConnection();
         });
         sc.OnAddPlayer(function(playerInfo){
             for (ID in playerInfo){
-                that.AddPlayer(ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
+                gm.AddPlayer(that, ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
             }
         });
         sc.OnRemovePlayer(function(ID){
-            that.RemovePlayer(ID);
+            gm.RemovePlayer(ID);
         });
         sc.OnUpdate(function(playerInfo){
-            that.UpdatePlayers(playerInfo);
+            gm.UpdatePlayers(playerInfo);
         });
 
         this.schedule(function(){
-            that.Update();
+            gm.Update();
         }, tick_rate);
 
         this.schedule(function(){
-            that.UpdateInput();
+            gm.UpdateInput();
         }, update_time);
     },
-    Update: function(){
-        // Move player
-        var player = gm.players[gm.selfID].gameObject;
-        if (gm.current_input[cc.KEY.left]){
-            player.setPosition(cc.p(player.getPositionX() - movement_speed, player.getPositionY()));
-            gm.unprocessed_input.push(cc.KEY.left);
-        }
-        else if (gm.current_input[cc.KEY.right]){
-            player.setPosition(cc.p(player.getPositionX() + movement_speed, player.getPositionY()));
-            gm.unprocessed_input.push(cc.KEY.right);
-        }
-        if (gm.current_input[cc.KEY.up]){
-            player.setPosition(cc.p(player.getPositionX(), player.getPositionY() + movement_speed));
-            gm.unprocessed_input.push(cc.KEY.up);
-        }
-        else if (gm.current_input[cc.KEY.down]){
-            player.setPosition(cc.p(player.getPositionX(), player.getPositionY() - movement_speed));
-            gm.unprocessed_input.push(cc.KEY.down);
-        }
-        // Move bullets
-        for (var ID in gm.bullets){
-            for (var i = 0; i < gm.bullets[ID].length; ++i){
-                var bullet = gm.bullets[ID][i];
-                bullet.gameObject.setPosition(cc.pAdd(bullet.gameObject.getPosition(), bullet.velocity));
-                var bullet_rect = bullet.gameObject.getBoundingBox();
-                if (!cc.rectIntersectsRect(bullet_rect, game_boundary)){
-                    bullet.gameObject.removeFromParentAndCleanup(true);
-                    gm.bullets[ID].splice(i, 1);
-                    i -= 1; // Move i back one to make up for removing bullet from array.
-                }
-            }
-        }
-    },
-    // Move player gameObject to given end position within time seconds and num_updates number of updates.
-    MovePlayer: function(player, end_pos, time, num_updates){
-        var start_pos = player.getPosition();
-        var current_time = 0;
-        var delta_time = time / num_updates;
-
-        this._MovePlayer(player, start_pos, end_pos, time, current_time, delta_time);
-    },
-    // Helper function for MovePlayer to be called recursively.
-    _MovePlayer(player, start_pos, end_pos, time, current_time, delta_time){
-        current_time += delta_time;
-        if (current_time > time){
-            current_time = time;
-        }
-        var x_pos = cc.lerp(start_pos.x, end_pos.x, current_time / time);
-        var y_pos = cc.lerp(start_pos.y, end_pos.y, current_time / time);
-        var pos = cc.p(x_pos, y_pos);
-        player.setPosition(pos);
-        var that = this;
-        if (current_time < time){
-            setTimeout(function(){
-                that._MovePlayer(player, start_pos, end_pos, time, current_time, delta_time);
-            }, delta_time * 1000);
-        }
-    },
-    RotateAimer: function(mousePos){
-        var diff = cc.pSub(mousePos, gm.players[gm.selfID].gameObject.getPosition());
-        var angle = cc.pAngle(diff, cc.p(1, 0));    // Angle in radians
-        if (diff.y > 0)
-            angle = Math.PI + (Math.PI - angle);
-        var pos = cc.pRotateByAngle(cc.p(70, 0), cc.p(0, 0), -angle);
-        gm.aimer.gameObject.setRotation(angle * 180 / Math.PI);     // Convert to degrees
-        gm.aimer.gameObject.setPosition(pos);
-    },
-    Shoot: function(){
-        var bullet = new cc.DrawNode();
-        var pos = cc.pAdd(gm.players[gm.selfID].gameObject.getPosition(), gm.aimer.gameObject.getPosition());
-        bullet.setPosition(pos);
-        bullet.drawCircle(cc.p(0, 0), 5, 360, 10, false, 4, cc.color(0, 0, 255, 255));
-        this.addChild(bullet, 1);
-        var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), bullet_speed);
-        gm.bullets[gm.selfID].push({'gameObject': bullet, 'velocity': velocity});
-    },
-    AddPlayer: function(ID, name, color, position){
-        // Player body
-        var player = new cc.DrawNode();
-        player.setPosition(cc.p(position));
-        if (ID == gm.selfID){
-            player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(0, 255, 0, 255));
-            gm.aimer.gameObject = new cc.DrawNode();
-            player.addChild(gm.aimer.gameObject);
-            gm.aimer.gameObject.setPosition(cc.p(70, 0));
-            gm.aimer.gameObject.drawPoly([cc.p(-15, 15), cc.p(-15, -15), cc.p(0, 0)], 3, true, true);
-        }
-        else
-            player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(255, 0, 0, 255));
-        this.addChild(player, 1);
-        // Player nametag
-        var nameTag = cc.LabelTTF.create(name, 'Arial', 20);
-        player.addChild(nameTag, 1);
-
-        gm.bullets[ID] = [];
-        gm.players[ID] = {'gameObject': player};   //Add reference to this player into global players dictionary
-    },
-    RemovePlayer: function(ID){
-        gm.players[ID].gameObject.removeFromParentAndCleanup(true);
-        delete gm.players[ID];
-    },
-    UpdateInput: function(){
-        if (gm.unprocessed_input.length > 0){
-            sc.UpdateInput(gm.unprocessed_input);
-            gm.unprocessed_input = [];
-        }
-    },
-    UpdatePlayers: function(playerInfo){
-        for (var ID in playerInfo){
-            if (ID != gm.selfID){
-                this.MovePlayer(gm.players[ID].gameObject, cc.p(playerInfo[ID].position), 0.04, 3);
-            }
-        }
-    },
-    LostConnection: function(){
-        var size = cc.director.getWinSize();
-        var disconnectLabel = cc.LabelTTF.create("Disconnected", 'Arial', 30);
-        disconnectLabel.color = cc.color(255, 0, 0, 255);
-        var labelSize = disconnectLabel.getContentSize();
-        disconnectLabel.setPosition(cc.p(size.width - labelSize.width / 2, labelSize.height / 2));
-        this.addChild(disconnectLabel, 5);
-    },
+    
 });
 
 GameLayer.scene = function(playerInfo){

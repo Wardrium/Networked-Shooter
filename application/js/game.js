@@ -212,6 +212,31 @@ var GameLayer = cc.Layer.extend({
             gm.unprocessed_input.push(cc.KEY.down);
         }
     },
+    // Move player gameobject to given end position within time seconds and num_updates number of updates.
+    MovePlayer: function(player, end_pos, time, num_updates){
+        var start_pos = player.getPosition();
+        var current_time = 0;
+        var delta_time = time / num_updates;
+
+        this._MovePlayer(player, start_pos, end_pos, time, current_time, delta_time);
+    },
+    // Helper function for MovePlayer to be called recursively.
+    _MovePlayer(player, start_pos, end_pos, time, current_time, delta_time){
+        current_time += delta_time;
+        if (current_time > time){
+            current_time = time;
+        }
+        var x_pos = cc.lerp(start_pos.x, end_pos.x, current_time / time);
+        var y_pos = cc.lerp(start_pos.y, end_pos.y, current_time / time);
+        var pos = cc.p(x_pos, y_pos);
+        player.setPosition(pos);
+        var that = this;
+        if (current_time < time){
+            setTimeout(function(){
+                that._MovePlayer(player, start_pos, end_pos, time, current_time, delta_time);
+            }, delta_time * 1000);
+        }
+    },
     AddPlayer: function(ID, name, color, position){
         // Player body
         var player = new cc.DrawNode();
@@ -241,7 +266,8 @@ var GameLayer = cc.Layer.extend({
     UpdatePlayers: function(playerInfo){
         for (var ID in playerInfo){
             if (ID != gm.selfID){
-                gm.players[ID].gameObject.setPosition(cc.p(playerInfo[ID].position));
+                this.MovePlayer(gm.players[ID].gameObject, cc.p(playerInfo[ID].position), 0.04, 3);
+                //gm.players[ID].gameObject.setPosition(cc.p(playerInfo[ID].position));
             }
         }
     },

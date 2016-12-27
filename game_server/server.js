@@ -159,7 +159,7 @@ var gm = {
 		return this.ID_count++;	// Increment ID_count after returning current value
 	},
 	_GeneratePosition: function(){
-		return {'x': Math.floor((Math.random() * 600)), 'y': Math.floor((Math.random() * 600))};
+		return {'x': Math.floor((Math.random() * 860)) + 50, 'y': Math.floor((Math.random() * 540)) + 50};
 	},
 	_GenerateColor: function(){
 		return 'temp';

@@ -23,21 +23,33 @@ var gm = {
     Update: function(){
         // Move player
         var player = gm.players[gm.selfID].gameObject;
+        var target_pos = player.getPosition();
         if (gm.current_input[cc.KEY.left]){
-            player.setPosition(cc.p(player.getPositionX() - movement_speed, player.getPositionY()));
+            target_pos.x -= movement_speed;
             gm.unprocessed_input.push(cc.KEY.left);
         }
         else if (gm.current_input[cc.KEY.right]){
-            player.setPosition(cc.p(player.getPositionX() + movement_speed, player.getPositionY()));
+            target_pos.x += movement_speed;
             gm.unprocessed_input.push(cc.KEY.right);
         }
         if (gm.current_input[cc.KEY.up]){
-            player.setPosition(cc.p(player.getPositionX(), player.getPositionY() + movement_speed));
+            target_pos.y += movement_speed;
             gm.unprocessed_input.push(cc.KEY.up);
         }
         else if (gm.current_input[cc.KEY.down]){
-            player.setPosition(cc.p(player.getPositionX(), player.getPositionY() - movement_speed));
+            target_pos.y -= movement_speed;
             gm.unprocessed_input.push(cc.KEY.down);
+        }
+        if (target_pos != null){    // Player issued a movement command.
+            if (target_pos.x < 50)
+                target_pos.x = 50;
+            else if (target_pos.x > 910)
+                target_pos.x = 910;
+            if (target_pos.y < 50)
+                target_pos.y = 50;
+            else if (target_pos.y > 590)
+                target_pos.y = 590;
+            player.setPosition(target_pos);
         }
         // Move bullets
         for (var ID in gm.bullets){
@@ -46,8 +58,7 @@ var gm = {
                 bullet.gameObject.setPosition(cc.pAdd(bullet.gameObject.getPosition(), bullet.velocity));
                 var bullet_rect = bullet.gameObject.getBoundingBox();
                 if (!cc.rectIntersectsRect(bullet_rect, game_boundary)){
-                    bullet.gameObject.removeFromParentAndCleanup(true);
-                    gm.bullets[ID].splice(i, 1);
+                    this.RemoveBullet(ID, i);
                     i -= 1; // Move i back one to make up for removing bullet from array.
                 }
             }
@@ -95,6 +106,11 @@ var gm = {
         layer.addChild(bullet, 1);
         var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), bullet_speed);
         gm.bullets[gm.selfID].push({'gameObject': bullet, 'velocity': velocity});
+    },
+    RemoveBullet: function(ID, index){
+        var bullet = gm.bullets[ID][index];
+        bullet.gameObject.removeFromParentAndCleanup(true);
+        gm.bullets[ID].splice(index, 1);
     },
     AddPlayer: function(layer, ID, name, color, position){
         // Player body

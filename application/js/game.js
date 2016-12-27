@@ -8,8 +8,9 @@ var movement_speed;    // How many pixels to move per game tick.
 // Game information
 var gm = {
     timestamp: 0,
-    players: {},
+    players: {},    // map(ID, {gameObject})
     selfID: -1,
+    aimer: {},    // gameObject of aim triangle. {gameObject}
     current_input: {},   // map(cc.KEY, keyDown)
     unprocessed_input: [],  // Array of input that has not been sent to server.
 }
@@ -127,6 +128,7 @@ var GameLayer = cc.Layer.extend({
             this.AddPlayer(ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
         }
 
+        var that = this;    // Maintain this reference for callbacks
         // Set player input
         cc.eventManager.addListener({
             event: cc.EventListener.KEYBOARD,
@@ -167,8 +169,14 @@ var GameLayer = cc.Layer.extend({
             }
         }, this);
 
+        cc.eventManager.addListener({
+            event: cc.EventListener.MOUSE,
+            onMouseMove: function(event){
+                that.RotateAimer(event.getLocation());
+            }
+        }, this);
+
         // Schedule asynchronous updates
-        var that = this;    // Maintain this reference for callbacks
         sc.OnDisconnect(function(){
             that.LostConnection();
         });
@@ -237,12 +245,22 @@ var GameLayer = cc.Layer.extend({
             }, delta_time * 1000);
         }
     },
+    RotateAimer: function(mousePos){
+        var diff = cc.pSub(mousePos, gm.players[gm.selfID].gameObject.getPosition());
+        var angle = cc.pAngle(diff, cc.p(1, 0)) * 180 / Math.PI;
+        if (diff.y > 0)
+            angle = 180 + (180 - angle);
+        gm.aimer.gameObject.setRotation(angle);
+    },
     AddPlayer: function(ID, name, color, position){
         // Player body
         var player = new cc.DrawNode();
         player.setPosition(cc.p(position));
         if (ID == gm.selfID){
             player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(0, 255, 0, 255));
+            gm.aimer.gameObject = new cc.DrawNode();
+            player.addChild(gm.aimer.gameObject);
+            gm.aimer.gameObject.drawPoly([cc.p(55, 15), cc.p(55, -15), cc.p(70, 0)], 3, true, true);
         }
         else
             player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(255, 0, 0, 255));

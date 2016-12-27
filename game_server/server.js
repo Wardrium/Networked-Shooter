@@ -3,7 +3,10 @@ var update_time = 0.045;	// How often to send updates to clients, in seconds.
 var tick_rate = 0.015;	// How often server updates game state, in seconds.
 
 // Game Settings
-var movement_speed = 1;	// How many pixels to move per game tick.
+var movement_speed = 1;	// How many pixels a player can move per game tick.
+var max_bullets = 3;	// How many bullets can be shot at once per player.
+var bullet_speed = 3;	// How many pixels a bullet can move per game tick.
+var shooting_cooldown = 35;	// How many ticks a player has to wait before shooting again.
 
 // Cocos2D v3.9 keys
 var cc = {KEY: {
@@ -132,6 +135,7 @@ var gm = {
 	ID_count: 0,
 	connections: [],	// Entries of form: {socket, ID}. If ID = -1, then not in game yet.
 	players: {},		// map(ID, {name, color, position})
+	bullets: {},		// map(ID, {position, velocity})
 	inputs: {},			// map(ID, [unprocessed inputs])
 
 	// Returns connection in connections array that contains the given socket.
@@ -228,7 +232,8 @@ io.sockets.on('connection', function(socket){
 	socket.on('register', function(name){
 		var ID = gm.AddNewPlayer(name);
 		gm.GetConnection(socket, false).ID = ID;
-		socket.emit('register', {'settings': {'timestamp': gm.timestamp, 'tick_rate': tick_rate, 'movement_speed': movement_speed},
+		socket.emit('register', {'settings': {'timestamp': gm.timestamp, 'tick_rate': tick_rate, 'movement_speed': movement_speed,
+								'max_bullets': max_bullets, 'bullet_speed': bullet_speed, 'shooting_cooldown': shooting_cooldown},
 								'ID': ID, 'players': gm.GetPlayersFull()});
 		for (var i = 0; i < gm.connections.length - 1; ++i){
 			gm.connections[i].socket.emit('add player', gm.GetPlayerFull(ID));

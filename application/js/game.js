@@ -3,12 +3,18 @@ var update_time = 0.045;    // How often to send updates to server, in seconds.
 var tick_rate;  // How often server updates game state, in seconds.
 
 // Game Settings
-var movement_speed;    // How many pixels to move per game tick.
+var movement_speed; // How many pixels a player can move per game tick.
+var max_bullets;    // How many bullets can be shot at once per player.
+var bullet_speed;   // How many pixels a bullet can move per game tick.
+var shooting_cooldown; // How many ticks a player has to wait before shooting again.
+
+var game_boundary = cc.rect(0, 0, 960, 640);
 
 // Game information
 var gm = {
     timestamp: 0,
     players: {},    // map(ID, {gameObject})
+    bullets: {},    // map(ID, [{gameObject, velocity}])
     selfID: -1,
     aimer: {},    // gameObject of aim triangle. {gameObject}
     current_input: {},   // map(cc.KEY, keyDown)
@@ -91,6 +97,9 @@ var MenuLayer = cc.Layer.extend({
                             timestamp = settings.timestamp;
                             tick_rate = settings.tick_rate;
                             movement_speed = settings.movement_speed;
+                            max_bullets = settings.max_bullets;
+                            bullet_speed = settings.bullet_speed;
+                            shooting_cooldown = settings.shooting_cooldown;
                             gm.selfID = ID;
                             cc.director.runScene(GameLayer.scene(playerInfo));
                         });
@@ -168,11 +177,16 @@ var GameLayer = cc.Layer.extend({
                 }
             }
         }, this);
-
         cc.eventManager.addListener({
             event: cc.EventListener.MOUSE,
             onMouseMove: function(event){
                 that.RotateAimer(event.getLocation());
+            }
+        }, this);
+        cc.eventManager.addListener({
+            event: cc.EventListener.MOUSE,
+            onMouseUp: function(event){
+                that.Shoot();
             }
         }, this);
 
@@ -200,7 +214,7 @@ var GameLayer = cc.Layer.extend({
             that.UpdateInput();
         }, update_time);
     },
-    Update: function(dt){
+    Update: function(){
         // Move player
         var player = gm.players[gm.selfID].gameObject;
         if (gm.current_input[cc.KEY.left]){
@@ -219,8 +233,21 @@ var GameLayer = cc.Layer.extend({
             player.setPosition(cc.p(player.getPositionX(), player.getPositionY() - movement_speed));
             gm.unprocessed_input.push(cc.KEY.down);
         }
+        // Move bullets
+        for (var ID in gm.bullets){
+            for (var i = 0; i < gm.bullets[ID].length; ++i){
+                var bullet = gm.bullets[ID][i];
+                bullet.gameObject.setPosition(cc.pAdd(bullet.gameObject.getPosition(), bullet.velocity));
+                var bullet_rect = bullet.gameObject.getBoundingBox();
+                if (!cc.rectIntersectsRect(bullet_rect, game_boundary)){
+                    bullet.gameObject.removeFromParentAndCleanup(true);
+                    gm.bullets[ID].splice(i, 1);
+                    i -= 1; // Move i back one to make up for removing bullet from array.
+                }
+            }
+        }
     },
-    // Move player gameobject to given end position within time seconds and num_updates number of updates.
+    // Move player gameObject to given end position within time seconds and num_updates number of updates.
     MovePlayer: function(player, end_pos, time, num_updates){
         var start_pos = player.getPosition();
         var current_time = 0;
@@ -247,10 +274,21 @@ var GameLayer = cc.Layer.extend({
     },
     RotateAimer: function(mousePos){
         var diff = cc.pSub(mousePos, gm.players[gm.selfID].gameObject.getPosition());
-        var angle = cc.pAngle(diff, cc.p(1, 0)) * 180 / Math.PI;
+        var angle = cc.pAngle(diff, cc.p(1, 0));    // Angle in radians
         if (diff.y > 0)
-            angle = 180 + (180 - angle);
-        gm.aimer.gameObject.setRotation(angle);
+            angle = Math.PI + (Math.PI - angle);
+        var pos = cc.pRotateByAngle(cc.p(70, 0), cc.p(0, 0), -angle);
+        gm.aimer.gameObject.setRotation(angle * 180 / Math.PI);     // Convert to degrees
+        gm.aimer.gameObject.setPosition(pos);
+    },
+    Shoot: function(){
+        var bullet = new cc.DrawNode();
+        var pos = cc.pAdd(gm.players[gm.selfID].gameObject.getPosition(), gm.aimer.gameObject.getPosition());
+        bullet.setPosition(pos);
+        bullet.drawCircle(cc.p(0, 0), 5, 360, 10, false, 4, cc.color(0, 0, 255, 255));
+        this.addChild(bullet, 1);
+        var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), bullet_speed);
+        gm.bullets[gm.selfID].push({'gameObject': bullet, 'velocity': velocity});
     },
     AddPlayer: function(ID, name, color, position){
         // Player body
@@ -260,7 +298,8 @@ var GameLayer = cc.Layer.extend({
             player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(0, 255, 0, 255));
             gm.aimer.gameObject = new cc.DrawNode();
             player.addChild(gm.aimer.gameObject);
-            gm.aimer.gameObject.drawPoly([cc.p(55, 15), cc.p(55, -15), cc.p(70, 0)], 3, true, true);
+            gm.aimer.gameObject.setPosition(cc.p(70, 0));
+            gm.aimer.gameObject.drawPoly([cc.p(-15, 15), cc.p(-15, -15), cc.p(0, 0)], 3, true, true);
         }
         else
             player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(255, 0, 0, 255));
@@ -269,6 +308,7 @@ var GameLayer = cc.Layer.extend({
         var nameTag = cc.LabelTTF.create(name, 'Arial', 20);
         player.addChild(nameTag, 1);
 
+        gm.bullets[ID] = [];
         gm.players[ID] = {'gameObject': player};   //Add reference to this player into global players dictionary
     },
     RemovePlayer: function(ID){
@@ -285,7 +325,6 @@ var GameLayer = cc.Layer.extend({
         for (var ID in playerInfo){
             if (ID != gm.selfID){
                 this.MovePlayer(gm.players[ID].gameObject, cc.p(playerInfo[ID].position), 0.04, 3);
-                //gm.players[ID].gameObject.setPosition(cc.p(playerInfo[ID].position));
             }
         }
     },

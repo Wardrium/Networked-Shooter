@@ -212,20 +212,31 @@ var gm = {
 		for (var ID in this.unprocessed_inputs){
 			for (var i = 0; i < this.unprocessed_inputs[ID].length; ++i){
 				var key = this.unprocessed_inputs[ID][i];
+				var target_pos = this.players[ID].position;
 				switch(key){
 					case cc.KEY.a:
-						this.players[ID].position.x -= movement_speed;
+						target_pos.x -= movement_speed;
 						break;
 					case cc.KEY.d:
-						this.players[ID].position.x += movement_speed;
+						target_pos.x += movement_speed;
 						break;
 					case cc.KEY.w:
-						this.players[ID].position.y += movement_speed;
+						target_pos.y += movement_speed;
 						break;
 					case cc.KEY.s:
-						this.players[ID].position.y -= movement_speed;
+						target_pos.y -= movement_speed;
 						break;
 				}
+				
+				if (target_pos.x < 50)
+            		target_pos.x = 50;
+        		else if (target_pos.x > 910)
+            		target_pos.x = 910;
+	            if (target_pos.y < 50)
+	                target_pos.y = 50;
+	            else if (target_pos.y > 590)
+	                target_pos.y = 590;
+	            this.players[ID].position = target_pos;
 			}
 			this.unprocessed_inputs[ID] = [];	// Empty input for this player.
 		}

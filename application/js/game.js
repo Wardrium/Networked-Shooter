@@ -41,17 +41,17 @@ var gm = {
             target_pos.y -= movement_speed;
             gm.unprocessed_input.push(cc.KEY.s);
         }
-        if (target_pos != null){    // Player issued a movement command.
-            if (target_pos.x < 50)
-                target_pos.x = 50;
-            else if (target_pos.x > 910)
-                target_pos.x = 910;
-            if (target_pos.y < 50)
-                target_pos.y = 50;
-            else if (target_pos.y > 590)
-                target_pos.y = 590;
-            player.setPosition(target_pos);
-        }
+
+        if (target_pos.x < 50)
+            target_pos.x = 50;
+        else if (target_pos.x > 910)
+            target_pos.x = 910;
+        if (target_pos.y < 50)
+            target_pos.y = 50;
+        else if (target_pos.y > 590)
+            target_pos.y = 590;
+        player.setPosition(target_pos);
+
         // Move bullets
         for (var ID in gm.bullets){
             for (var i = 0; i < gm.bullets[ID].length; ++i){

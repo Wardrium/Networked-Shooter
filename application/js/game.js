@@ -147,9 +147,9 @@ var gm = {
         // Player health bar
         var healthBar = new cc.DrawNode();
         player.addChild(healthBar, 1);
-
         gm.bullets[ID] = [];
-        gm.players[ID] = {'gameObject': player, 'healthBar': healthBar, 'health': health};   //Add reference to this player into global players dictionary
+        gm.players[ID] = {'gameObject': player, 'healthBar': healthBar, 'health': settings.player_health};   //Add reference to this player into global players dictionary
+        this.UpdateHealth(ID, health);
     },
     RemovePlayer: function(ID){
         gm.players[ID].gameObject.removeFromParentAndCleanup(true);

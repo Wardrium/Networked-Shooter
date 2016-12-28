@@ -17,7 +17,7 @@ var game_boundary = cc.rect(0, 0, 960, 640);
 // Game manager
 var gm = {
     timestamp: 0,
-    players: {},    // map(ID, {gameObject})
+    players: {},    // map(ID, {gameObject, healthBar, health}) Note: healthBar is also a gameObject.
     bullets: {},    // map(ID, [{gameObject, velocity}])
     selfID: -1,
     aimer: {},    // gameObject of aim triangle. {gameObject}
@@ -115,9 +115,9 @@ var gm = {
         var bullet = new cc.DrawNode();
         bullet.setPosition(position);
         if (ID == this.selfID)
-            bullet.drawCircle(cc.p(0, 0), 5, 360, 10, false, 4, cc.color(0, 255, 0, 255));
+            bullet.drawCircle(cc.p(0, 0), 5, 0, 10, false, 4, cc.color(0, 255, 0, 255));
         else {
-            bullet.drawCircle(cc.p(0, 0), 5, 360, 10, false, 4, cc.color(255, 0, 0, 255));
+            bullet.drawCircle(cc.p(0, 0), 5, 0, 10, false, 4, cc.color(255, 0, 0, 255));
         }
         layer.addChild(bullet, 1);
         gm.bullets[gm.selfID].push({'gameObject': bullet, 'velocity': velocity});
@@ -127,26 +127,29 @@ var gm = {
         bullet.gameObject.removeFromParentAndCleanup(true);
         gm.bullets[ID].splice(index, 1);
     },
-    AddPlayer: function(layer, ID, name, color, position){
+    AddPlayer: function(layer, ID, name, color, position, health){
         // Player body
         var player = new cc.DrawNode();
         player.setPosition(cc.p(position));
         if (ID == gm.selfID){
-            player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(0, 255, 0, 255));
+            player.drawCircle(cc.p(0, 0), 50, 0, 50, false, 4, cc.color(0, 255, 0, 255));
             gm.aimer.gameObject = new cc.DrawNode();
             player.addChild(gm.aimer.gameObject);
             gm.aimer.gameObject.setPosition(cc.p(70, 0));
             gm.aimer.gameObject.drawPoly([cc.p(-15, 15), cc.p(-15, -15), cc.p(0, 0)], 3, true, true);
         }
         else
-            player.drawCircle(cc.p(0, 0), 50, 360, 50, false, 4, cc.color(255, 0, 0, 255));
+            player.drawCircle(cc.p(0, 0), 50, 0, 50, false, 4, cc.color(255, 0, 0, 255));
         layer.addChild(player, 1);
-        // Player nametag
+        // Player name tag
         var nameTag = cc.LabelTTF.create(name, 'Arial', 20);
         player.addChild(nameTag, 1);
+        // Player health bar
+        var healthBar = new cc.DrawNode();
+        player.addChild(healthBar, 1);
 
         gm.bullets[ID] = [];
-        gm.players[ID] = {'gameObject': player};   //Add reference to this player into global players dictionary
+        gm.players[ID] = {'gameObject': player, 'healthBar': healthBar, 'health': health};   //Add reference to this player into global players dictionary
     },
     RemovePlayer: function(ID){
         gm.players[ID].gameObject.removeFromParentAndCleanup(true);
@@ -161,17 +164,38 @@ var gm = {
     },
     UpdatePlayers: function(playerInfo){
         for (var ID in playerInfo){
+            // Player has moved.
             if (ID != gm.selfID){
                 this.MovePlayer(gm.players[ID].gameObject, cc.p(playerInfo[ID].position), 0.045, 3);
             }
+            // Player has been damaged.
+            if (playerInfo[ID].health != gm.players[ID].health){
+                this.UpdateHealth(ID, playerInfo[ID].health);
+            }
         }
     },
-    UpdateBullets: function(layer, bulletInfo){
+    UpdateHealth: function(ID, newHealth){
+        if (this.players[ID].health != newHealth){
+            var healthBar = this.players[ID].healthBar;
+            var circumference = (Math.PI * 2) - newHealth / settings.player_health * (Math.PI * 2);
+            healthBar.clear();
+            healthBar.drawArc(cc.p(0, 0), 50, circumference, 0, 50, false, 4, cc.color(105, 105, 105));
+            this.players[ID].health = newHealth;
+        }
+    },
+    // Update new bullets that were fired.
+    UpdateNewBullets: function(layer, bulletInfo){
         for (var i = 0; i < bulletInfo.length; ++i){
             var bullet = bulletInfo[i];
             if (bullet.ID != this.selfID){
                 this.AddBullet(layer, bullet.ID, bullet.position, bullet.velocity);
             }
+        }
+    },
+    UpdateRemovedBullets: function(removedBulletInfo){
+        for (var i = 0; i < removedBulletInfo.length; ++i){
+            var bullet = removedBulletInfo[i];
+            this.RemoveBullet(bullet.ID, bullet.index);
         }
     },
     LostConnection: function(layer){
@@ -224,7 +248,7 @@ var sc = {
     },
     OnUpdate: function(callback){
         socket.on('update', function(data){
-            callback(data['timestamp'], data['playerInfo'], data['bulletInfo']);
+            callback(data['timestamp'], data['playerInfo'], data['bulletInfo'], data['removedBulletInfo']);
         });
     },
 }
@@ -293,7 +317,7 @@ var GameLayer = cc.Layer.extend({
 
         //Draw players
         for (var ID in playerInfo){
-            gm.AddPlayer(this, ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
+            gm.AddPlayer(this, ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position, playerInfo[ID].health);
         }
 
         var that = this;    // Maintain this reference for callbacks
@@ -355,16 +379,17 @@ var GameLayer = cc.Layer.extend({
         });
         sc.OnAddPlayer(function(playerInfo){
             for (ID in playerInfo){
-                gm.AddPlayer(that, ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position);
+                gm.AddPlayer(that, ID, playerInfo[ID].name, playerInfo[ID].color, playerInfo[ID].position, playerInfo[ID].health);
             }
         });
         sc.OnRemovePlayer(function(ID){
             gm.RemovePlayer(ID);
         });
-        sc.OnUpdate(function(timestamp, playerInfo, bulletInfo){
+        sc.OnUpdate(function(timestamp, playerInfo, bulletInfo, removedBulletInfo){
             gm.timestamp = timestamp;
             gm.UpdatePlayers(playerInfo);
-            gm.UpdateBullets(that, bulletInfo);
+            gm.UpdateNewBullets(that, bulletInfo);
+            gm.UpdateRemovedBullets(removedBulletInfo);
         });
 
         this.schedule(function(){

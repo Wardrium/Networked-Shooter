@@ -19809,6 +19809,29 @@ cc.game.addEventListener(cc.game.EVENT_RENDERER_INITED, function () {
                 element.isStroke = true;
                 this._buffer.push(element);
             },
+            drawArc: function (center, radius, circumference, angle, segments, drawLineToCenter, lineWidth, color) {
+                lineWidth = lineWidth || this._lineWidth;
+                color = color || this.getDrawColor();
+                if (color.a == null)
+                    color.a = 255;
+                var coef = circumference / segments;
+                var vertices = [];
+                for (var i = 0; i <= segments; i++) {
+                    var rads = i * coef;
+                    var j = radius * Math.cos(rads + angle) + center.x;
+                    var k = radius * Math.sin(rads + angle) + center.y;
+                    vertices.push(cc.p(j, k));
+                }
+                if (drawLineToCenter) {
+                    vertices.push(cc.p(center.x, center.y));
+                }
+                var element = new cc._DrawNodeElement(cc.DrawNode.TYPE_POLY);
+                element.verts = vertices;
+                element.lineWidth = lineWidth;
+                element.lineColor = color;
+                element.isStroke = true;
+                this._buffer.push(element);
+            },
             drawQuadBezier: function (origin, control, destination, segments, lineWidth, color) {
                 lineWidth = lineWidth || this._lineWidth;
                 color = color || this.getDrawColor();

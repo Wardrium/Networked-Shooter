@@ -158,6 +158,7 @@ var gm = {
 	unprocessed_inputs: {},			// map(ID, [unprocessed inputs])
 	unprocessed_bullets: {},		// map(ID, [{timestamp, position, velocity}])
 	unsent_bullets: [],				// [ID, timestamp, position, velocity]. Bullets that were processed but not sent to clients yet.
+	removed_bullets: [],			// [ID, index]. Bullets that were destroyed. Note: Must remove in same order on client to keep index consistent.
 
 	// Returns connection in connections array that contains the given socket.
 	// If deleteAfter is true, will remove connection from connections array after finding it.
@@ -175,7 +176,7 @@ var gm = {
 	AddNewPlayer: function(name){
 		position = this._GeneratePosition();
 		color = this._GenerateColor();
-		this.players[this.ID_count] = {'name': name, 'color': color, 'position': position};
+		this.players[this.ID_count] = {'name': name, 'color': color, 'position': position, 'health': settings.player_health};
 		this.bullets[this.ID_count] = [];
 		this.unprocessed_inputs[this.ID_count] = [];
 		this.unprocessed_bullets[this.ID_count] = [];
@@ -196,7 +197,7 @@ var gm = {
 		var players = {};
 		for (var ID in this.players){
 			var player = this.players[ID];
-			players[ID] = {'position': player.position};
+			players[ID] = {'position': player.position, 'health': player.health};
 		}
 		return players;
 	},
@@ -208,6 +209,9 @@ var gm = {
 	},
 	SetPlayerInput: function(ID, inputs){
 		this.unprocessed_inputs[ID] = this.unprocessed_inputs[ID].concat(inputs);
+	},
+	DamagePlayer: function(ID, amt){
+		this.players[ID].health -= amt;
 	},
 	RemovePlayer: function(ID){
 		delete this.players[ID];
@@ -224,6 +228,7 @@ var gm = {
 	},
 	RemoveBullet: function(ID, index){
 		gm.bullets[ID].splice(index, 1);
+		gm.removed_bullets.push({'ID': ID, 'index': index});
 	},
 	// Progress the game by one game tick.
 	UpdateGame: function(){
@@ -277,14 +282,33 @@ var gm = {
 				bullet.position.y = bullet.position.y + bullet.velocity.y;
 				// Detect if bullet moved offscreen.
 				if (bullet.position.x < 5 || bullet.position.y < 5 
-					|| bullet.position.x > 955 || bullet.position.x > 635){
+					|| bullet.position.x > 955 || bullet.position.y > 635){
                     this.RemoveBullet(ID, i);
                     i -= 1; // Move i back one to make up for removing bullet from array.
+                }
+                // Detect if bullet hits a player in O(n^2). TODO: Implement collision detection with grids.
+                for (var playerID in this.players){
+                	if (ID != playerID){
+                		if (this._CheckCollision(bullet.position, this.players[playerID].position)){
+                			this.DamagePlayer(playerID, settings.bullet_damage);
+                			this.RemoveBullet(ID, i);
+                		}
+                	}
                 }
 			}
 		}
 
 		this.timestamp += 1;
+	},
+	// Returns true if bullet collides with player, false otherwise.
+	_CheckCollision(bullet_pos, player_pos){
+		var x1 = bullet_pos.x;
+		var y1 = bullet_pos.y;
+		var r1 = 5;
+		var x2 = player_pos.x;
+		var y2 = player_pos.y;
+		var r2 = 50;
+		return Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2) <= Math.pow(r1 + r2, 2)
 	},
 };
 
@@ -320,9 +344,11 @@ io.sockets.on('connection', function(socket){
 	// Send position updates to players and new bullets shot
 	setInterval(function (){
 		for (var i = 0; i < gm.connections.length; ++i){
-			gm.connections[i].socket.emit('update', {'timestamp': gm.timestamp, 'playerInfo': gm.GetPlayersUpdate(), 'bulletInfo': gm.unsent_bullets});
+			gm.connections[i].socket.emit('update', {'timestamp': gm.timestamp, 'playerInfo': gm.GetPlayersUpdate(), 
+				'bulletInfo': gm.unsent_bullets, 'removedBulletInfo': gm.removed_bullets});
 		}
 		gm.unsent_bullets = [];
+		gm.removed_bullets = [];
 	}, update_time * 1000);
 
 	// Disconnect

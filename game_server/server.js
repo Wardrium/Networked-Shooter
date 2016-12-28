@@ -3,10 +3,15 @@ var update_time = 0.045;	// How often to send updates to clients, in seconds.
 var tick_rate = 0.015;	// How often server updates game state, in seconds.
 
 // Game Settings
-var movement_speed = 1;	// How many pixels a player can move per game tick.
-var max_bullets = 3;	// How many bullets can be shot at once per player.
-var bullet_speed = 3;	// How many pixels a bullet can move per game tick.
-var shooting_cooldown = 35;	// How many ticks a player has to wait before shooting again.
+var settings = {
+	movement_speed: 1,	// How many pixels a player can move per game tick.
+	max_bullets: 3,		// How many bullets can be shot at once per player.
+	bullet_speed: 3,	// How many pixels a bullet can move per game tick.
+	shooting_cooldown: 35,	// How many ticks a player has to wait before shooting again.
+	player_health: 10,
+	bullet_damage: 1,
+}
+
 
 // Cocos2D-js variables/functions
 var cc = {};
@@ -229,16 +234,16 @@ var gm = {
 				var target_pos = this.players[ID].position;
 				switch(key){
 					case cc.KEY.a:
-						target_pos.x -= movement_speed;
+						target_pos.x -= settings.movement_speed;
 						break;
 					case cc.KEY.d:
-						target_pos.x += movement_speed;
+						target_pos.x += settings.movement_speed;
 						break;
 					case cc.KEY.w:
-						target_pos.y += movement_speed;
+						target_pos.y += settings.movement_speed;
 						break;
 					case cc.KEY.s:
-						target_pos.y -= movement_speed;
+						target_pos.y -= settings.movement_speed;
 						break;
 				}
 
@@ -299,9 +304,7 @@ io.sockets.on('connection', function(socket){
 	socket.on('register', function(name){
 		var ID = gm.AddNewPlayer(name);
 		gm.GetConnection(socket, false).ID = ID;
-		socket.emit('register', {'settings': {'timestamp': gm.timestamp, 'tick_rate': tick_rate, 'movement_speed': movement_speed,
-								'max_bullets': max_bullets, 'bullet_speed': bullet_speed, 'shooting_cooldown': shooting_cooldown},
-								'ID': ID, 'players': gm.GetPlayersFull()});
+		socket.emit('register', {'timestamp': gm.timestamp, 'settings': settings, 'ID': ID, 'players': gm.GetPlayersFull()});
 		for (var i = 0; i < gm.connections.length - 1; ++i){
 			gm.connections[i].socket.emit('add player', gm.GetPlayerFull(ID));
 		}

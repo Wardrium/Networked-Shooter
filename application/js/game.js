@@ -205,7 +205,7 @@ var sc = {
     // Receieve data from server
     OnRegister: function(callback){
         socket.on('register', function(data){
-            callback(data['settings'], data['ID'], data['players']);
+            callback(data['timestamp'], data['settings'], data['ID'], data['players']);
         });
     },
     OnAddPlayer: function(callback){
@@ -252,8 +252,8 @@ var MenuLayer = cc.Layer.extend({
                     case cc.KEY.enter:
                         sc.Initialize();
                         sc.Register(textInput.string);
-                        sc.OnRegister(function(settings, ID, playerInfo){
-                            gm.timestamp = settings.timestamp;
+                        sc.OnRegister(function(timestamp, settings, ID, playerInfo){
+                            gm.timestamp = timestamp;
                             tick_rate = settings.tick_rate;
                             movement_speed = settings.movement_speed;
                             max_bullets = settings.max_bullets;

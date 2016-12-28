@@ -135,8 +135,10 @@ var gm = {
 	ID_count: 0,
 	connections: [],	// Entries of form: {socket, ID}. If ID = -1, then not in game yet.
 	players: {},		// map(ID, {name, color, position})
-	bullets: {},		// map(ID, {position, velocity})
-	inputs: {},			// map(ID, [unprocessed inputs])
+	bullets: {},		// map(ID, [{position, velocity}])
+	unprocessed_inputs: {},			// map(ID, [unprocessed inputs])
+	unprocessed_bullets: {},		// map(ID, [{timestamp, position, velocity}])
+	unsent_bullets: [],				// [ID, timestamp, position, velocity]. Bullets that were processed but not sent to clients yet.
 
 	// Returns connection in connections array that contains the given socket.
 	// If deleteAfter is true, will remove connection from connections array after finding it.
@@ -155,7 +157,9 @@ var gm = {
 		position = this._GeneratePosition();
 		color = this._GenerateColor();
 		this.players[this.ID_count] = {'name': name, 'color': color, 'position': position};
-		this.inputs[this.ID_count] = [];
+		this.bullets[this.ID_count] = [];
+		this.unprocessed_inputs[this.ID_count] = [];
+		this.unprocessed_bullets[this.ID_count] = [];
 		return this.ID_count++;	// Increment ID_count after returning current value
 	},
 	_GeneratePosition: function(){
@@ -184,18 +188,30 @@ var gm = {
 		return player;
 	},
 	SetPlayerInput: function(ID, inputs){
-		this.inputs[ID] = this.inputs[ID].concat(inputs);
+		this.unprocessed_inputs[ID] = this.unprocessed_inputs[ID].concat(inputs);
 	},
 	RemovePlayer: function(ID){
 		delete this.players[ID];
-		delete this.inputs[ID];
+		delete this.bullets[ID];
+		delete this.unprocessed_inputs[ID];
+		delete this.unprocessed_bullets[ID];
+	},
+	// Add a bullet into the game. Will calculate bullet's position at current timestamp from the timestamp it was fired at.
+	AddBullet: function(ID, timestamp, position, velocity){
+		var timestamp_diff = gm.timestamp - timestamp;
+		position = {'x': position.x + timestamp_diff * velocity.x, 'y': position.y + timestamp_diff * velocity.y}
+		gm.bullets[ID].push({'position': position, 'velocity': velocity});
+		this.unsent_bullets.push({'ID': ID, 'position': position, 'velocity': velocity});
+	},
+	RemoveBullet: function(ID, index){
+		gm.bullets[ID].splice(index, 1);
 	},
 	// Progress the game by one game tick.
 	UpdateGame: function(){
-		this.timestamp += 1;
-		for (var ID in this.inputs){
-			for (var i = 0; i < this.inputs[ID].length; ++i){
-				var key = this.inputs[ID][i];
+		// Process inputs
+		for (var ID in this.unprocessed_inputs){
+			for (var i = 0; i < this.unprocessed_inputs[ID].length; ++i){
+				var key = this.unprocessed_inputs[ID][i];
 				switch(key){
 					case cc.KEY.a:
 						this.players[ID].position.x -= movement_speed;
@@ -211,8 +227,28 @@ var gm = {
 						break;
 				}
 			}
-			this.inputs[ID] = [];	// Empty input for this player.
+			this.unprocessed_inputs[ID] = [];	// Empty input for this player.
 		}
+
+		// Process bullets
+		for (var ID in this.unprocessed_bullets){
+			for (var i = 0; i < this.unprocessed_bullets[ID].length; ++i){
+				var bullet = this.unprocessed_bullets[ID][i];
+				this.AddBullet(ID, bullet.timestamp, bullet.position, bullet.velocity);
+			}
+			this.unprocessed_bullets[ID] = [];
+		}
+
+		// Move bullets
+		for (var ID in this.bullets){
+			for (var i = 0; i < this.bullets[ID].length; ++i){
+				var bullet = this.bullets[ID][i];
+				bullet.position.x = bullet.position.x + bullet.velocity.x;
+				bullet.position.y = bullet.position.y + bullet.velocity.y;
+			}
+		}
+
+		this.timestamp += 1;
 	},
 };
 
@@ -240,17 +276,19 @@ io.sockets.on('connection', function(socket){
 		}
 	});
 
-	// Update player input
+	// Update player input and unprocessed bullets
 	socket.on('update', function(data){
 		var connection = gm.GetConnection(socket, false);
 		gm.SetPlayerInput(connection.ID, data.input);
+		gm.unprocessed_bullets[connection.ID] = gm.unprocessed_bullets[connection.ID].concat(data.unprocessed_bullets);
 	});
 
-	// Send position updates to players
+	// Send position updates to players and new bullets shot
 	setInterval(function (){
 		for (var i = 0; i < gm.connections.length; ++i){
-			gm.connections[i].socket.emit('update', gm.GetPlayersUpdate());
+			gm.connections[i].socket.emit('update', {'timestamp': gm.timestamp, 'playerInfo': gm.GetPlayersUpdate(), 'bulletInfo': gm.unsent_bullets});
 		}
+		gm.unsent_bullets = [];
 	}, update_time * 1000);
 
 	// Disconnect

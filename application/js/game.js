@@ -19,6 +19,7 @@ var gm = {
     aimer: {},    // gameObject of aim triangle. {gameObject}
     current_input: {},   // map(cc.KEY, keyDown)
     unprocessed_input: [],  // Array of input that has not been sent to server.
+    unprocessed_bullets: [],    // Array of bullets shot that has not been sent to server.  [{timestamp, position, velocity}]
 
     Update: function(){
         // Move player
@@ -63,6 +64,7 @@ var gm = {
                 }
             }
         }
+        gm.timestamp += 1;
     },
     // Move player gameObject to given end position within time seconds and num_updates number of updates.
     MovePlayer: function(player, end_pos, time, num_updates){
@@ -99,12 +101,20 @@ var gm = {
         gm.aimer.gameObject.setPosition(pos);
     },
     Shoot: function(layer){
-        var bullet = new cc.DrawNode();
         var pos = cc.pAdd(gm.players[gm.selfID].gameObject.getPosition(), gm.aimer.gameObject.getPosition());
-        bullet.setPosition(pos);
-        bullet.drawCircle(cc.p(0, 0), 5, 360, 10, false, 4, cc.color(0, 0, 255, 255));
-        layer.addChild(bullet, 1);
         var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), bullet_speed);
+        this.AddBullet(layer, this.selfID, pos, velocity);
+        gm.unprocessed_bullets.push({'timestamp': gm.timestamp, 'position': pos, 'velocity': velocity});
+    },
+    AddBullet: function(layer, ID, position, velocity){
+        var bullet = new cc.DrawNode();
+        bullet.setPosition(position);
+        if (ID == this.selfID)
+            bullet.drawCircle(cc.p(0, 0), 5, 360, 10, false, 4, cc.color(0, 255, 0, 255));
+        else {
+            bullet.drawCircle(cc.p(0, 0), 5, 360, 10, false, 4, cc.color(255, 0, 0, 255));
+        }
+        layer.addChild(bullet, 1);
         gm.bullets[gm.selfID].push({'gameObject': bullet, 'velocity': velocity});
     },
     RemoveBullet: function(ID, index){
@@ -137,10 +147,11 @@ var gm = {
         gm.players[ID].gameObject.removeFromParentAndCleanup(true);
         delete gm.players[ID];
     },
-    UpdateInput: function(){
-        if (gm.unprocessed_input.length > 0){
-            sc.UpdateInput(gm.unprocessed_input);
+    UpdateServer: function(){
+        if (gm.unprocessed_input.length > 0 || gm.unprocessed_bullets.length > 0){
+            sc.UpdateServer(gm.unprocessed_input, gm.unprocessed_bullets);
             gm.unprocessed_input = [];
+            gm.unprocessed_bullets = [];
         }
     },
     UpdatePlayers: function(playerInfo){
@@ -150,13 +161,21 @@ var gm = {
             }
         }
     },
-    LostConnection: function(){
+    UpdateBullets: function(layer, bulletInfo){
+        for (var i = 0; i < bulletInfo.length; ++i){
+            var bullet = bulletInfo[i];
+            if (bullet.ID != this.selfID){
+                this.AddBullet(layer, bullet.ID, bullet.position, bullet.velocity);
+            }
+        }
+    },
+    LostConnection: function(layer){
         var size = cc.director.getWinSize();
         var disconnectLabel = cc.LabelTTF.create("Disconnected", 'Arial', 30);
         disconnectLabel.color = cc.color(255, 0, 0, 255);
         var labelSize = disconnectLabel.getContentSize();
         disconnectLabel.setPosition(cc.p(size.width - labelSize.width / 2, labelSize.height / 2));
-        this.addChild(disconnectLabel, 5);
+        layer.addChild(disconnectLabel, 5);
     },
 }
 
@@ -178,8 +197,8 @@ var sc = {
     Register: function(name){
         socket.emit('register', name);
     },
-    UpdateInput: function(unprocessed_input){
-        socket.emit('update', {'input': unprocessed_input});
+    UpdateServer: function(unprocessed_input, unprocessed_bullets){
+        socket.emit('update', {'input': unprocessed_input, 'unprocessed_bullets': unprocessed_bullets});
     },
 
     // Receieve data from server
@@ -200,7 +219,7 @@ var sc = {
     },
     OnUpdate: function(callback){
         socket.on('update', function(data){
-            callback(data);
+            callback(data['timestamp'], data['playerInfo'], data['bulletInfo']);
         });
     },
 }
@@ -233,7 +252,7 @@ var MenuLayer = cc.Layer.extend({
                         sc.Initialize();
                         sc.Register(textInput.string);
                         sc.OnRegister(function(settings, ID, playerInfo){
-                            timestamp = settings.timestamp;
+                            gm.timestamp = settings.timestamp;
                             tick_rate = settings.tick_rate;
                             movement_speed = settings.movement_speed;
                             max_bullets = settings.max_bullets;
@@ -331,7 +350,7 @@ var GameLayer = cc.Layer.extend({
 
         // Schedule asynchronous updates
         sc.OnDisconnect(function(){
-            gm.LostConnection();
+            gm.LostConnection(that);
         });
         sc.OnAddPlayer(function(playerInfo){
             for (ID in playerInfo){
@@ -341,8 +360,10 @@ var GameLayer = cc.Layer.extend({
         sc.OnRemovePlayer(function(ID){
             gm.RemovePlayer(ID);
         });
-        sc.OnUpdate(function(playerInfo){
+        sc.OnUpdate(function(timestamp, playerInfo, bulletInfo){
+            gm.timestamp = timestamp;
             gm.UpdatePlayers(playerInfo);
+            gm.UpdateBullets(that, bulletInfo);
         });
 
         this.schedule(function(){
@@ -350,7 +371,7 @@ var GameLayer = cc.Layer.extend({
         }, tick_rate);
 
         this.schedule(function(){
-            gm.UpdateInput();
+            gm.UpdateServer();
         }, update_time);
     },
     

@@ -63,10 +63,10 @@ var gm = {
                 bullet.gameObject.setPosition(cc.pAdd(bullet.gameObject.getPosition(), bullet.velocity));
                 var position = bullet.gameObject.getPosition();
                 // If bullet is offscreen then delete it
-                if (position.x < 5 || position.y < 5 || position.x > 955 || position.y > 635){
+                /*if (position.x < 5 || position.y < 5 || position.x > 955 || position.y > 635){
                     this.RemoveBullet(ID, i);
                     i -= 1; // Move i back one to make up for removing bullet from array.
-                }
+                }*/
             }
         }
         gm.timestamp += 1;

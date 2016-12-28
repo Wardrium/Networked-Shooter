@@ -120,7 +120,7 @@ var gm = {
             bullet.drawCircle(cc.p(0, 0), 5, 0, 10, false, 4, cc.color(255, 0, 0, 255));
         }
         layer.addChild(bullet, 1);
-        gm.bullets[gm.selfID].push({'gameObject': bullet, 'velocity': velocity});
+        gm.bullets[ID].push({'gameObject': bullet, 'velocity': velocity});
     },
     RemoveBullet: function(ID, index){
         var bullet = gm.bullets[ID][index];

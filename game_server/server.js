@@ -277,23 +277,30 @@ var gm = {
 		// Move bullets
 		for (var ID in this.bullets){
 			for (var i = 0; i < this.bullets[ID].length; ++i){
+				var removed = false;
 				var bullet = this.bullets[ID][i];
 				bullet.position.x = bullet.position.x + bullet.velocity.x;
 				bullet.position.y = bullet.position.y + bullet.velocity.y;
 				// Detect if bullet moved offscreen.
 				if (bullet.position.x < 5 || bullet.position.y < 5 
 					|| bullet.position.x > 955 || bullet.position.y > 635){
-                    this.RemoveBullet(ID, i);
-                    i -= 1; // Move i back one to make up for removing bullet from array.
+					removed = true;
                 }
-                // Detect if bullet hits a player in O(n^2). TODO: Implement collision detection with grids.
-                for (var playerID in this.players){
-                	if (ID != playerID){
-                		if (this._CheckCollision(bullet.position, this.players[playerID].position)){
-                			this.DamagePlayer(playerID, settings.bullet_damage);
-                			this.RemoveBullet(ID, i);
-                		}
-                	}
+                if (!removed){
+	                // Detect if bullet hits a player in O(n^2). TODO: Implement collision detection with grids.
+	                for (var playerID in this.players){
+	                	if (ID != playerID){
+	                		if (this._CheckCollision(bullet.position, this.players[playerID].position)){
+	                			this.DamagePlayer(playerID, settings.bullet_damage);
+	                			removed = true;
+	                			break;
+	                		}
+	                	}
+	                }
+	            }	
+                if (removed){
+                	this.RemoveBullet(ID, i);
+                	i -= 1; // Move i back one to make up for removing bullet from array.
                 }
 			}
 		}

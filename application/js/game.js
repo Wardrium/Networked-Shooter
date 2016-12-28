@@ -2,11 +2,15 @@
 var update_time = 0.045;    // How often to send updates to server, in seconds.
 var tick_rate;  // How often server updates game state, in seconds.
 
-// Game Settings
-var movement_speed; // How many pixels a player can move per game tick.
-var max_bullets;    // How many bullets can be shot at once per player.
-var bullet_speed;   // How many pixels a bullet can move per game tick.
-var shooting_cooldown; // How many ticks a player has to wait before shooting again.
+/* Game settings. Will be read in from server.
+    movement_speed: How many pixels a player can move per game tick.
+    max_bullets: How many bullets can be shot at once per player.
+    bullet_speed: How many pixels a bullet can move per game tick.
+    shooting_cooldown: How many ticks a player has to wait before shooting again.
+    player_health: Starting health of players.
+    bullet_damage: Damage each bullet does to a player.
+*/
+var settings = {};
 
 var game_boundary = cc.rect(0, 0, 960, 640);
 
@@ -26,19 +30,19 @@ var gm = {
         var player = gm.players[gm.selfID].gameObject;
         var target_pos = player.getPosition();
         if (gm.current_input[cc.KEY.a]){
-            target_pos.x -= movement_speed;
+            target_pos.x -= settings.movement_speed;
             gm.unprocessed_input.push(cc.KEY.a);
         }
         else if (gm.current_input[cc.KEY.d]){
-            target_pos.x += movement_speed;
+            target_pos.x += settings.movement_speed;
             gm.unprocessed_input.push(cc.KEY.d);
         }
         if (gm.current_input[cc.KEY.w]){
-            target_pos.y += movement_speed;
+            target_pos.y += settings.movement_speed;
             gm.unprocessed_input.push(cc.KEY.w);
         }
         else if (gm.current_input[cc.KEY.s]){
-            target_pos.y -= movement_speed;
+            target_pos.y -= settings.movement_speed;
             gm.unprocessed_input.push(cc.KEY.s);
         }
 
@@ -103,7 +107,7 @@ var gm = {
     },
     Shoot: function(layer){
         var pos = cc.pAdd(gm.players[gm.selfID].gameObject.getPosition(), gm.aimer.gameObject.getPosition());
-        var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), bullet_speed);
+        var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), settings.bullet_speed);
         this.AddBullet(layer, this.selfID, pos, velocity);
         gm.unprocessed_bullets.push({'timestamp': gm.timestamp, 'position': pos, 'velocity': velocity});
     },
@@ -252,13 +256,9 @@ var MenuLayer = cc.Layer.extend({
                     case cc.KEY.enter:
                         sc.Initialize();
                         sc.Register(textInput.string);
-                        sc.OnRegister(function(timestamp, settings, ID, playerInfo){
+                        sc.OnRegister(function(timestamp, server_settings, ID, playerInfo){
                             gm.timestamp = timestamp;
-                            tick_rate = settings.tick_rate;
-                            movement_speed = settings.movement_speed;
-                            max_bullets = settings.max_bullets;
-                            bullet_speed = settings.bullet_speed;
-                            shooting_cooldown = settings.shooting_cooldown;
+                            settings = server_settings;
                             gm.selfID = ID;
                             cc.director.runScene(GameLayer.scene(playerInfo));
                         });

@@ -153,7 +153,7 @@ var gm = {
 	timestamp: 0,
 	ID_count: 0,
 	connections: [],	// Entries of form: {socket, ID}. If ID = -1, then not in game yet.
-	players: {},		// map(ID, {name, color, position})
+	players: {},		// map(ID, {name, color, position, health})
 	bullets: {},		// map(ID, [{position, velocity}])
 	unprocessed_inputs: {},			// map(ID, [unprocessed inputs])
 	unprocessed_bullets: {},		// map(ID, [{timestamp, position, velocity}])

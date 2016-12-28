@@ -8,8 +8,9 @@ var max_bullets = 3;	// How many bullets can be shot at once per player.
 var bullet_speed = 3;	// How many pixels a bullet can move per game tick.
 var shooting_cooldown = 35;	// How many ticks a player has to wait before shooting again.
 
-// Cocos2D v3.9 keys
-var cc = {KEY: {
+// Cocos2D-js variables/functions
+var cc = {};
+cc.KEY = {
     none:0,
     back:6,
     menu:18,
@@ -121,7 +122,20 @@ var cc = {KEY: {
     dpadUp:1003,
     dpadDown:1004,
     dpadCenter:1005
-}};
+};
+cc.rectIntersectsRect = function (ra, rb) {
+    var maxax = ra.x + ra.width,
+        maxay = ra.y + ra.height,
+        maxbx = rb.x + rb.width,
+        maxby = rb.y + rb.height;
+    return !(maxax < rb.x || maxbx < ra.x || maxay < rb.y || maxby < ra.y);
+};
+cc.Rect = function (x, y, width, height) {
+    this.x = x||0;
+    this.y = y||0;
+    this.width = width||0;
+    this.height = height||0;
+};
 
 // Server-----------------------------------------------------
 var express = require('express');
@@ -227,7 +241,7 @@ var gm = {
 						target_pos.y -= movement_speed;
 						break;
 				}
-				
+
 				if (target_pos.x < 50)
             		target_pos.x = 50;
         		else if (target_pos.x > 910)
@@ -256,6 +270,12 @@ var gm = {
 				var bullet = this.bullets[ID][i];
 				bullet.position.x = bullet.position.x + bullet.velocity.x;
 				bullet.position.y = bullet.position.y + bullet.velocity.y;
+				// Detect if bullet moved offscreen.
+				if (bullet.position.x < 5 || bullet.position.y < 5 
+					|| bullet.position.x > 955 || bullet.position.x > 635){
+                    this.RemoveBullet(ID, i);
+                    i -= 1; // Move i back one to make up for removing bullet from array.
+                }
 			}
 		}
 

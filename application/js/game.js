@@ -57,8 +57,9 @@ var gm = {
             for (var i = 0; i < gm.bullets[ID].length; ++i){
                 var bullet = gm.bullets[ID][i];
                 bullet.gameObject.setPosition(cc.pAdd(bullet.gameObject.getPosition(), bullet.velocity));
-                var bullet_rect = bullet.gameObject.getBoundingBox();
-                if (!cc.rectIntersectsRect(bullet_rect, game_boundary)){
+                var position = bullet.gameObject.getPosition();
+                // If bullet is offscreen then delete it
+                if (position.x < 5 || position.y < 5 || position.x > 955 || position.y > 635){
                     this.RemoveBullet(ID, i);
                     i -= 1; // Move i back one to make up for removing bullet from array.
                 }

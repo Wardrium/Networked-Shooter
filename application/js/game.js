@@ -27,34 +27,36 @@ var gm = {
 
     Update: function(){
         // Move player
-        var player = gm.players[gm.selfID].gameObject;
-        var target_pos = player.getPosition();
-        if (gm.current_input[cc.KEY.a]){
-            target_pos.x -= settings.movement_speed;
-            gm.unprocessed_input.push(cc.KEY.a);
-        }
-        else if (gm.current_input[cc.KEY.d]){
-            target_pos.x += settings.movement_speed;
-            gm.unprocessed_input.push(cc.KEY.d);
-        }
-        if (gm.current_input[cc.KEY.w]){
-            target_pos.y += settings.movement_speed;
-            gm.unprocessed_input.push(cc.KEY.w);
-        }
-        else if (gm.current_input[cc.KEY.s]){
-            target_pos.y -= settings.movement_speed;
-            gm.unprocessed_input.push(cc.KEY.s);
-        }
+        if (gm.players[gm.selfID].health > 0){ // Only move if player is alive.
+            var player = gm.players[gm.selfID].gameObject;
+            var target_pos = player.getPosition();
+            if (gm.current_input[cc.KEY.a]){
+                target_pos.x -= settings.movement_speed;
+                gm.unprocessed_input.push(cc.KEY.a);
+            }
+            else if (gm.current_input[cc.KEY.d]){
+                target_pos.x += settings.movement_speed;
+                gm.unprocessed_input.push(cc.KEY.d);
+            }
+            if (gm.current_input[cc.KEY.w]){
+                target_pos.y += settings.movement_speed;
+                gm.unprocessed_input.push(cc.KEY.w);
+            }
+            else if (gm.current_input[cc.KEY.s]){
+                target_pos.y -= settings.movement_speed;
+                gm.unprocessed_input.push(cc.KEY.s);
+            }
 
-        if (target_pos.x < 50)
-            target_pos.x = 50;
-        else if (target_pos.x > 910)
-            target_pos.x = 910;
-        if (target_pos.y < 50)
-            target_pos.y = 50;
-        else if (target_pos.y > 590)
-            target_pos.y = 590;
-        player.setPosition(target_pos);
+            if (target_pos.x < 50)
+                target_pos.x = 50;
+            else if (target_pos.x > 910)
+                target_pos.x = 910;
+            if (target_pos.y < 50)
+                target_pos.y = 50;
+            else if (target_pos.y > 590)
+                target_pos.y = 590;
+            player.setPosition(target_pos);
+        }
 
         // Move bullets
         for (var ID in gm.bullets){
@@ -62,11 +64,6 @@ var gm = {
                 var bullet = gm.bullets[ID][i];
                 bullet.gameObject.setPosition(cc.pAdd(bullet.gameObject.getPosition(), bullet.velocity));
                 var position = bullet.gameObject.getPosition();
-                // If bullet is offscreen then delete it
-                /*if (position.x < 5 || position.y < 5 || position.x > 955 || position.y > 635){
-                    this.RemoveBullet(ID, i);
-                    i -= 1; // Move i back one to make up for removing bullet from array.
-                }*/
             }
         }
         gm.timestamp += 1;
@@ -106,10 +103,12 @@ var gm = {
         gm.aimer.gameObject.setPosition(pos);
     },
     Shoot: function(layer){
-        var pos = cc.pAdd(gm.players[gm.selfID].gameObject.getPosition(), gm.aimer.gameObject.getPosition());
-        var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), settings.bullet_speed);
-        this.AddBullet(layer, this.selfID, pos, velocity);
-        gm.unprocessed_bullets.push({'position': pos, 'velocity': velocity});
+        if (gm.players[gm.selfID].health > 0){
+            var pos = cc.pAdd(gm.players[gm.selfID].gameObject.getPosition(), gm.aimer.gameObject.getPosition());
+            var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), settings.bullet_speed);
+            this.AddBullet(layer, this.selfID, pos, velocity);
+            gm.unprocessed_bullets.push({'position': pos, 'velocity': velocity});
+        }
     },
     AddBullet: function(layer, ID, position, velocity){
         var bullet = new cc.DrawNode();
@@ -175,12 +174,18 @@ var gm = {
         }
     },
     UpdateHealth: function(ID, newHealth){
+        if (newHealth < 0)
+            newHealth = 0;
         if (this.players[ID].health != newHealth){
             var healthBar = this.players[ID].healthBar;
             var circumference = (Math.PI * 2) - newHealth / settings.player_health * (Math.PI * 2);
             healthBar.clear();
             healthBar.drawArc(cc.p(0, 0), 50, circumference, 0, 50, false, 4, cc.color(105, 105, 105));
             this.players[ID].health = newHealth;
+        }
+        if (ID == this.selfID && newHealth <= 0){
+            // Player is dead, remove aimer.
+            this.aimer.gameObject.removeFromParentAndCleanup(true);
         }
     },
     // Update new bullets that were fired.

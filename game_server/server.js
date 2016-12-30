@@ -212,6 +212,8 @@ var gm = {
 	},
 	DamagePlayer: function(ID, amt){
 		this.players[ID].health -= amt;
+		if (this.players[ID].health < 0)
+			this.players[ID].health = 0;
 	},
 	RemovePlayer: function(ID){
 		delete this.players[ID];
@@ -232,42 +234,46 @@ var gm = {
 	UpdateGame: function(){
 		// Process inputs
 		for (var ID in this.unprocessed_inputs){
-			for (var i = 0; i < this.unprocessed_inputs[ID].length; ++i){
-				var key = this.unprocessed_inputs[ID][i];
-				var target_pos = this.players[ID].position;
-				switch(key){
-					case cc.KEY.a:
-						target_pos.x -= settings.movement_speed;
-						break;
-					case cc.KEY.d:
-						target_pos.x += settings.movement_speed;
-						break;
-					case cc.KEY.w:
-						target_pos.y += settings.movement_speed;
-						break;
-					case cc.KEY.s:
-						target_pos.y -= settings.movement_speed;
-						break;
-				}
+			if (this.players[ID].health > 0){	// If player health is less than 0, he is dead and cannot move.
+				for (var i = 0; i < this.unprocessed_inputs[ID].length; ++i){
+					var key = this.unprocessed_inputs[ID][i];
+					var target_pos = this.players[ID].position;
+					switch(key){
+						case cc.KEY.a:
+							target_pos.x -= settings.movement_speed;
+							break;
+						case cc.KEY.d:
+							target_pos.x += settings.movement_speed;
+							break;
+						case cc.KEY.w:
+							target_pos.y += settings.movement_speed;
+							break;
+						case cc.KEY.s:
+							target_pos.y -= settings.movement_speed;
+							break;
+					}
 
-				if (target_pos.x < 50)
-            		target_pos.x = 50;
-        		else if (target_pos.x > 910)
-            		target_pos.x = 910;
-	            if (target_pos.y < 50)
-	                target_pos.y = 50;
-	            else if (target_pos.y > 590)
-	                target_pos.y = 590;
-	            this.players[ID].position = target_pos;
+					if (target_pos.x < 50)
+	            		target_pos.x = 50;
+	        		else if (target_pos.x > 910)
+	            		target_pos.x = 910;
+		            if (target_pos.y < 50)
+		                target_pos.y = 50;
+		            else if (target_pos.y > 590)
+		                target_pos.y = 590;
+		            this.players[ID].position = target_pos;
+				}
 			}
 			this.unprocessed_inputs[ID] = [];	// Empty input for this player.
 		}
 
 		// Process bullets
 		for (var ID in this.unprocessed_bullets){
-			for (var i = 0; i < this.unprocessed_bullets[ID].length; ++i){
-				var bullet = this.unprocessed_bullets[ID][i];
-				this.AddBullet(ID, bullet.position, bullet.velocity);
+			if (this.players[ID].health > 0){	// If player health is less than 0, he cannot shoot.
+				for (var i = 0; i < this.unprocessed_bullets[ID].length; ++i){
+					var bullet = this.unprocessed_bullets[ID][i];
+					this.AddBullet(ID, bullet.position, bullet.velocity);
+				}
 			}
 			this.unprocessed_bullets[ID] = [];
 		}

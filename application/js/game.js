@@ -13,6 +13,7 @@ var tick_rate;  // How often server updates game state, in seconds.
 var settings = {};
 
 var game_boundary = cc.rect(0, 0, 960, 640);
+var game;   // A reference to the game layer.
 
 // Game manager
 var gm = {
@@ -185,7 +186,7 @@ var gm = {
         }
         if (ID == this.selfID && newHealth <= 0){
             // Player is dead, remove aimer.
-            this.aimer.gameObject.removeFromParentAndCleanup(true);
+            this.PlayerDead();
         }
     },
     // Update new bullets that were fired.
@@ -211,7 +212,28 @@ var gm = {
         disconnectLabel.setPosition(cc.p(size.width - labelSize.width / 2, labelSize.height / 2));
         layer.addChild(disconnectLabel, 5);
     },
+    PlayerDead: function(layer){
+        this.aimer.gameObject.removeFromParentAndCleanup(true);
+        var size = cc.director.getWinSize();
+        var deadLabel = cc.LabelTTF.create("Dead. Press enter to restart.", 'Arial', 30);
+        deadLabel.color = cc.color(255, 0, 0, 255);
+        var labelSize = deadLabel.getContentSize();
+        deadLabel.setPosition(cc.p(size.width - labelSize.width / 2, labelSize.height / 2));
+        game.addChild(deadLabel, 5);
+
+        cc.eventManager.addListener({
+            event: cc.EventListener.KEYBOARD,
+            onKeyPressed:function(key, event){
+                switch(key){
+                    case cc.KEY.enter:
+                        gm.RefreshPage();
+                        break;
+                }
+            }
+        }, game);
+    },
     RefreshPage: function(){
+        sc.Disconnect();
         cc.director.runScene(MenuLayer.scene());
     },
 }
@@ -235,6 +257,9 @@ var sc = {
             callback();
             console.log('refresh page');
         });
+    },
+    Disconnect:function(){
+        socket.disconnect();
     },
     // Send data to server
     Register: function(name){
@@ -323,6 +348,7 @@ var GameLayer = cc.Layer.extend({
     },
     init: function(playerInfo){
         this._super();
+        game = this;
         var size = cc.director.getWinSize();
 
         var background = new cc.DrawNode();

@@ -156,7 +156,7 @@ var gm = {
 	players: {},		// map(ID, {name, color, position, health})
 	bullets: {},		// map(ID, [{position, velocity}])
 	unprocessed_inputs: {},			// map(ID, [unprocessed inputs])
-	unprocessed_bullets: {},		// map(ID, [{timestamp, position, velocity}])
+	unprocessed_bullets: {},		// map(ID, [{position, velocity}])
 	unsent_bullets: [],				// [ID, timestamp, position, velocity]. Bullets that were processed but not sent to clients yet.
 	removed_bullets: [],			// [ID, index]. Bullets that were destroyed. Note: Must remove in same order on client to keep index consistent.
 
@@ -220,9 +220,7 @@ var gm = {
 		delete this.unprocessed_bullets[ID];
 	},
 	// Add a bullet into the game. Will calculate bullet's position at current timestamp from the timestamp it was fired at.
-	AddBullet: function(ID, timestamp, position, velocity){
-		var timestamp_diff = gm.timestamp - timestamp;
-		position = {'x': position.x + timestamp_diff * velocity.x, 'y': position.y + timestamp_diff * velocity.y}
+	AddBullet: function(ID, position, velocity){
 		gm.bullets[ID].push({'position': position, 'velocity': velocity});
 		this.unsent_bullets.push({'ID': ID, 'position': position, 'velocity': velocity});
 	},
@@ -269,7 +267,7 @@ var gm = {
 		for (var ID in this.unprocessed_bullets){
 			for (var i = 0; i < this.unprocessed_bullets[ID].length; ++i){
 				var bullet = this.unprocessed_bullets[ID][i];
-				this.AddBullet(ID, bullet.timestamp, bullet.position, bullet.velocity);
+				this.AddBullet(ID, bullet.position, bullet.velocity);
 			}
 			this.unprocessed_bullets[ID] = [];
 		}
@@ -344,15 +342,23 @@ io.sockets.on('connection', function(socket){
 	// Update player input and unprocessed bullets
 	socket.on('update', function(data){
 		var connection = gm.GetConnection(socket, false);
-		gm.SetPlayerInput(connection.ID, data.input);
-		gm.unprocessed_bullets[connection.ID] = gm.unprocessed_bullets[connection.ID].concat(data.unprocessed_bullets);
+		if (connection.ID == -1){
+			socket.emit('refresh');
+			socket.disconnect();
+		}
+		else {
+			gm.SetPlayerInput(connection.ID, data.input);
+			gm.unprocessed_bullets[connection.ID] = gm.unprocessed_bullets[connection.ID].concat(data.unprocessed_bullets);
+		}
 	});
 
 	// Send position updates to players and new bullets shot
 	setInterval(function (){
 		for (var i = 0; i < gm.connections.length; ++i){
-			gm.connections[i].socket.emit('update', {'timestamp': gm.timestamp, 'playerInfo': gm.GetPlayersUpdate(), 
-				'bulletInfo': gm.unsent_bullets, 'removedBulletInfo': gm.removed_bullets});
+			if (gm.connections[i].ID != -1){
+				gm.connections[i].socket.emit('update', {'timestamp': gm.timestamp, 'playerInfo': gm.GetPlayersUpdate(), 
+					'bulletInfo': gm.unsent_bullets, 'removedBulletInfo': gm.removed_bullets});
+			}
 		}
 		gm.unsent_bullets = [];
 		gm.removed_bullets = [];
@@ -361,10 +367,12 @@ io.sockets.on('connection', function(socket){
 	// Disconnect
 	socket.on('disconnect', function(data){
 		var ID = gm.GetConnection(socket, true).ID;
-		gm.RemovePlayer(ID);
-		// Alert all clients of player who left.
-		for (var i = 0; i < gm.connections.length; ++i){
-			gm.connections[i].socket.emit('remove player', ID);
+		if (ID != -1){
+			gm.RemovePlayer(ID);
+			// Alert all clients of player who left.
+			for (var i = 0; i < gm.connections.length; ++i){
+				gm.connections[i].socket.emit('remove player', ID);
+			}
 		}
 		console.log("Disconnected: %s sockets connected", gm.connections.length);
 	})

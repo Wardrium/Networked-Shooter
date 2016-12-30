@@ -23,7 +23,7 @@ var gm = {
     aimer: {},    // gameObject of aim triangle. {gameObject}
     current_input: {},   // map(cc.KEY, keyDown)
     unprocessed_input: [],  // Array of input that has not been sent to server.
-    unprocessed_bullets: [],    // Array of bullets shot that has not been sent to server.  [{timestamp, position, velocity}]
+    unprocessed_bullets: [],    // Array of bullets shot that has not been sent to server.  [{position, velocity}]
 
     Update: function(){
         // Move player
@@ -109,7 +109,7 @@ var gm = {
         var pos = cc.pAdd(gm.players[gm.selfID].gameObject.getPosition(), gm.aimer.gameObject.getPosition());
         var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), settings.bullet_speed);
         this.AddBullet(layer, this.selfID, pos, velocity);
-        gm.unprocessed_bullets.push({'timestamp': gm.timestamp, 'position': pos, 'velocity': velocity});
+        gm.unprocessed_bullets.push({'position': pos, 'velocity': velocity});
     },
     AddBullet: function(layer, ID, position, velocity){
         var bullet = new cc.DrawNode();
@@ -206,6 +206,9 @@ var gm = {
         disconnectLabel.setPosition(cc.p(size.width - labelSize.width / 2, labelSize.height / 2));
         layer.addChild(disconnectLabel, 5);
     },
+    RefreshPage: function(){
+        cc.director.runScene(MenuLayer.scene());
+    },
 }
 
 // Server communication
@@ -220,6 +223,12 @@ var sc = {
         socket.on('disconnect', function(data){
             callback();
             console.log('disconnected');
+        });
+    },
+    OnRefresh:function(callback){
+        socket.on('refresh', function(){
+            callback();
+            console.log('refresh page');
         });
     },
     // Send data to server
@@ -376,6 +385,9 @@ var GameLayer = cc.Layer.extend({
         // Schedule asynchronous updates
         sc.OnDisconnect(function(){
             gm.LostConnection(that);
+        });
+        sc.OnRefresh(function(){
+            gm.RefreshPage();
         });
         sc.OnAddPlayer(function(playerInfo){
             for (ID in playerInfo){

@@ -107,7 +107,6 @@ var gm = {
         if (gm.players[gm.selfID].health > 0){
             var pos = cc.pAdd(gm.players[gm.selfID].gameObject.getPosition(), gm.aimer.gameObject.getPosition());
             var velocity = cc.pMult(cc.pNormalize(gm.aimer.gameObject.getPosition()), settings.bullet_speed);
-            this.AddBullet(layer, this.selfID, pos, velocity);
             gm.unprocessed_bullets.push({'position': pos, 'velocity': velocity});
         }
     },
@@ -193,9 +192,7 @@ var gm = {
     UpdateNewBullets: function(layer, bulletInfo){
         for (var i = 0; i < bulletInfo.length; ++i){
             var bullet = bulletInfo[i];
-            if (bullet.ID != this.selfID){
-                this.AddBullet(layer, bullet.ID, bullet.position, bullet.velocity);
-            }
+            this.AddBullet(layer, bullet.ID, bullet.position, bullet.velocity);
         }
     },
     UpdateRemovedBullets: function(removedBulletInfo){

@@ -5,7 +5,7 @@ var tick_rate = 0.015;	// How often server updates game state, in seconds.
 // Game Settings
 var settings = {
 	movement_speed: 1,	// How many pixels a player can move per game tick.
-	max_bullets: 3,		// How many bullets can be shot at once per player.
+	max_bullets: 5,		// How many bullets can be shot at once per player.
 	bullet_speed: 3,	// How many pixels a bullet can move per game tick.
 	shooting_cooldown: 35,	// How many ticks a player has to wait before shooting again.
 	player_health: 10,
@@ -223,8 +223,10 @@ var gm = {
 	},
 	// Add a bullet into the game. Will calculate bullet's position at current timestamp from the timestamp it was fired at.
 	AddBullet: function(ID, position, velocity){
-		gm.bullets[ID].push({'position': position, 'velocity': velocity});
-		this.unsent_bullets.push({'ID': ID, 'position': position, 'velocity': velocity});
+		if (gm.bullets[ID].length < settings.max_bullets){
+			gm.bullets[ID].push({'position': position, 'velocity': velocity});
+			this.unsent_bullets.push({'ID': ID, 'position': position, 'velocity': velocity});
+		}
 	},
 	RemoveBullet: function(ID, index){
 		gm.bullets[ID].splice(index, 1);

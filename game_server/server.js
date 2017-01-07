@@ -4,9 +4,9 @@ var tick_rate = 0.015;	// How often server updates game state, in seconds.
 
 // Game Settings
 var settings = {
-	movement_speed: 1,	// How many pixels a player can move per game tick.
+	movement_speed: 2.5,	// How many pixels a player can move per game tick.
 	max_bullets: 5,		// How many bullets can be shot at once per player.
-	bullet_speed: 3,	// How many pixels a bullet can move per game tick.
+	bullet_speed: 5,	// How many pixels a bullet can move per game tick.
 	shooting_cooldown: 35,	// How many ticks a player has to wait before shooting again.
 	player_health: 10,
 	bullet_damage: 1,
@@ -155,7 +155,7 @@ var gm = {
 	connections: [],	// Entries of form: {socket, ID}. If ID = -1, then not in game yet.
 	players: {},		// map(ID, {name, color, position, health})
 	bullets: {},		// map(ID, [{position, velocity}])
-	unprocessed_inputs: {},			// map(ID, [unprocessed inputs])
+	unprocessed_inputs: {},			// map(ID, {timestamp, [inputs]}). 	Timestamp is the last tick the player was updated.
 	unprocessed_bullets: {},		// map(ID, [{position, velocity}])
 	unsent_bullets: [],				// [ID, timestamp, position, velocity]. Bullets that were processed but not sent to clients yet.
 	removed_bullets: [],			// [ID, index]. Bullets that were destroyed. Note: Must remove in same order on client to keep index consistent.
@@ -178,7 +178,7 @@ var gm = {
 		color = this._GenerateColor();
 		this.players[this.ID_count] = {'name': name, 'color': color, 'position': position, 'health': settings.player_health};
 		this.bullets[this.ID_count] = [];
-		this.unprocessed_inputs[this.ID_count] = [];
+		this.unprocessed_inputs[this.ID_count] = {'timestamp': this.timestamp, 'inputs': []};
 		this.unprocessed_bullets[this.ID_count] = [];
 		return this.ID_count++;	// Increment ID_count after returning current value
 	},
@@ -208,7 +208,7 @@ var gm = {
 		return player;
 	},
 	SetPlayerInput: function(ID, inputs){
-		this.unprocessed_inputs[ID] = this.unprocessed_inputs[ID].concat(inputs);
+		this.unprocessed_inputs[ID].inputs = this.unprocessed_inputs[ID].inputs.concat(inputs);
 	},
 	DamagePlayer: function(ID, amt){
 		this.players[ID].health -= amt;
@@ -237,21 +237,32 @@ var gm = {
 		// Process inputs
 		for (var ID in this.unprocessed_inputs){
 			if (this.players[ID].health > 0){	// If player health is less than 0, he is dead and cannot move.
-				for (var i = 0; i < this.unprocessed_inputs[ID].length; ++i){
-					var key = this.unprocessed_inputs[ID][i];
+				// The maximum allowable inputs in each direction since the last update.
+				var max_x_inputs = this.timestamp - this.unprocessed_inputs[ID].timestamp;
+				var max_y_inputs = max_x_inputs;
+				for (var i = 0; i < this.unprocessed_inputs[ID].inputs.length; ++i){
+					var key = this.unprocessed_inputs[ID].inputs[i];
 					var target_pos = this.players[ID].position;
 					switch(key){
 						case cc.KEY.a:
-							target_pos.x -= settings.movement_speed;
+							max_x_inputs -= 1;
+							if (max_x_inputs > 0)
+								target_pos.x -= settings.movement_speed;
 							break;
 						case cc.KEY.d:
-							target_pos.x += settings.movement_speed;
+							max_x_inputs -= 1;
+							if (max_x_inputs > 0)
+								target_pos.x += settings.movement_speed;
 							break;
 						case cc.KEY.w:
-							target_pos.y += settings.movement_speed;
+							max_y_inputs -= 1;
+							if (max_y_inputs > 0)
+								target_pos.y += settings.movement_speed;
 							break;
 						case cc.KEY.s:
-							target_pos.y -= settings.movement_speed;
+							max_y_inputs -= 1;
+							if (max_y_inputs > 0)
+								target_pos.y -= settings.movement_speed;
 							break;
 					}
 
@@ -266,10 +277,13 @@ var gm = {
 		            this.players[ID].position = target_pos;
 				}
 			}
-			this.unprocessed_inputs[ID] = [];	// Empty input for this player.
+			if (this.unprocessed_inputs[ID].inputs.length > 0)
+				this.unprocessed_inputs[ID].timestamp = this.timestamp;
+			this.unprocessed_inputs[ID].inputs = [];	// Empty input for this player.
 		}
 
 		// Process bullets
+		// TODO: Shoot bullets based on player position. Do not trust client to not lie about bullet position + velocity.
 		for (var ID in this.unprocessed_bullets){
 			if (this.players[ID].health > 0){	// If player health is less than 0, he cannot shoot.
 				for (var i = 0; i < this.unprocessed_bullets[ID].length; ++i){

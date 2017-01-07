@@ -29,34 +29,18 @@ var gm = {
     Update: function(){
         // Move player
         if (gm.players[gm.selfID].health > 0){ // Only move if player is alive.
-            var player = gm.players[gm.selfID].gameObject;
-            var target_pos = player.getPosition();
             if (gm.current_input[cc.KEY.a]){
-                target_pos.x -= settings.movement_speed;
                 gm.unprocessed_input.push(cc.KEY.a);
             }
             else if (gm.current_input[cc.KEY.d]){
-                target_pos.x += settings.movement_speed;
                 gm.unprocessed_input.push(cc.KEY.d);
             }
             if (gm.current_input[cc.KEY.w]){
-                target_pos.y += settings.movement_speed;
                 gm.unprocessed_input.push(cc.KEY.w);
             }
             else if (gm.current_input[cc.KEY.s]){
-                target_pos.y -= settings.movement_speed;
                 gm.unprocessed_input.push(cc.KEY.s);
             }
-
-            if (target_pos.x < 50)
-                target_pos.x = 50;
-            else if (target_pos.x > 910)
-                target_pos.x = 910;
-            if (target_pos.y < 50)
-                target_pos.y = 50;
-            else if (target_pos.y > 590)
-                target_pos.y = 590;
-            player.setPosition(target_pos);
         }
 
         // Move bullets
@@ -164,9 +148,8 @@ var gm = {
     UpdatePlayers: function(playerInfo){
         for (var ID in playerInfo){
             // Player has moved.
-            if (ID != gm.selfID){
-                this.MovePlayer(gm.players[ID].gameObject, cc.p(playerInfo[ID].position), 0.045, 3);
-            }
+            this.MovePlayer(gm.players[ID].gameObject, cc.p(playerInfo[ID].position), 0.045, 3);
+
             // Player has been damaged.
             if (playerInfo[ID].health != gm.players[ID].health){
                 this.UpdateHealth(ID, playerInfo[ID].health);

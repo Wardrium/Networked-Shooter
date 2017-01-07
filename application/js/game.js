@@ -238,7 +238,7 @@ var gm = {
 // Server communication
 var sc = {
     Initialize: function(){
-        socket = io.connect('http://97.69.161.115:8080');
+        socket = io.connect('http://98.243.38.5:8080');
         socket.on('connect', function(data){
             console.log('connected');
         })
